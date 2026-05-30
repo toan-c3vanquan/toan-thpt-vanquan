@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <title>Quản trị đề thi - LMS Mini</title>
+    <style>
+        body { font-family: system-ui; max-width: 800px; margin: 0 auto; padding: 20px; background: #f5f7fb; }
+        .card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        label { font-weight: bold; display: block; margin-top: 12px; }
+        input, textarea, select { width: 100%; padding: 8px; margin-top: 5px; border-radius: 8px; border: 1px solid #ccc; }
+        button { background: #1e3c72; color: white; padding: 10px 20px; border: none; border-radius: 8px; margin-top: 20px; cursor: pointer; }
+        .warning { background: #fff3cd; padding: 12px; border-radius: 8px; margin-top: 15px; }
+    </style>
+</head>
+<body>
+<h1>🛠 Quản trị kho đề</h1>
+<div class="card">
+    <h2>➕ Thêm đề mới</h2>
+    <label>Tiêu đề</label>
+    <input type="text" id="title" placeholder="VD: Ôn tập Hàm số">
+    <label>Lớp</label>
+    <select id="class">
+        <option>11A4</option><option>11A5</option><option>11A6</option>
+    </select>
+    <label>Tuần (VD: 2026-W01)</label>
+    <input type="text" id="week" placeholder="2026-W01">
+    <label>Ngày mở (YYYY-MM-DD)</label>
+    <input type="date" id="open">
+    <label>Ngày đóng (YYYY-MM-DD)</label>
+    <input type="date" id="close">
+    <label>ID đề (không dấu cách, VD: de003)</label>
+    <input type="text" id="id" placeholder="de003">
+    <label>Chọn file HTML đề</label>
+    <input type="file" id="htmlFile" accept=".html">
+    <button id="addBtn">➕ Thêm đề & Xuất exams.json</button>
+    <div id="info" class="warning">Sau khi thêm, bạn sẽ tải file exams.json mới về và upload lên GitHub thay thế file cũ.</div>
+</div>
+<script>
+    document.getElementById("addBtn").onclick = async () => {
+        const title = document.getElementById("title").value.trim();
+        const className = document.getElementById("class").value;
+        const week = document.getElementById("week").value.trim();
+        const open = document.getElementById("open").value;
+        const close = document.getElementById("close").value;
+        const id = document.getElementById("id").value.trim();
+        const htmlFile = document.getElementById("htmlFile").files[0];
+
+        if (!title || !open || !close || !id || !htmlFile) {
+            alert("Vui lòng điền đầy đủ thông tin và chọn file HTML.");
+            return;
+        }
+
+        // Đọc exams.json hiện tại (nếu có)
+        let currentExams = [];
+        try {
+            const res = await fetch("exams.json");
+            currentExams = await res.json();
+        } catch(e) { /* file chưa tồn tại */ }
+
+        // Kiểm tra trùng id
+        if (currentExams.find(ex => ex.id === id)) {
+            alert(`ID ${id} đã tồn tại. Vui lòng đổi ID khác.`);
+            return;
+        }
+
+        // Giả sử file HTML sẽ được upload riêng lên GitHub, ở đây ta chỉ lưu tên file
+        const htmlFileName = htmlFile.name;
+        const newExam = {
+            id: id,
+            title: title,
+            week: week,
+            class: className,
+            open: open,
+            close: close,
+            html: htmlFileName
+        };
+        currentExams.push(newExam);
+        
+        // Xuất file exams.json
+        const jsonStr = JSON.stringify(currentExams, null, 2);
+        const blob = new Blob([jsonStr], {type: "application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "exams.json";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+        
+        alert("Đã tạo file exams.json mới. Hãy tải file này lên GitHub (thay thế exams.json cũ) và upload file HTML đề lên cùng thư mục.");
+    };
+</script>
+</body>
+</html>
