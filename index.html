@@ -2,129 +2,95 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LMS Toán - Trang chủ</title>
+    <title>LMS Toán - Debug</title>
     <style>
-        /* Giữ nguyên style như cũ */
-        body { font-family: system-ui; max-width: 1000px; margin: 0 auto; padding: 20px; background: #f3f6fc; }
-        h1 { color: #1e3c72; }
-        .card { background: white; border-radius: 16px; padding: 16px 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        .de-item { border-left: 5px solid #1e3c72; margin: 12px 0; padding: 8px 12px; background: #f9f9ff; border-radius: 8px; }
-        .de-title { font-size: 1.2rem; font-weight: bold; }
-        .de-meta { color: #555; font-size: 0.85rem; margin: 5px 0; }
-        .btn { background: #1e3c72; color: white; padding: 6px 12px; border-radius: 8px; text-decoration: none; display: inline-block; margin-top: 8px; }
-        .btn-small { font-size: 0.8rem; padding: 4px 10px; }
-        .closed { opacity: 0.6; border-left-color: gray; }
-        .future { border-left-color: #f39c12; }
-        label { font-weight: bold; margin-right: 10px; }
-        select { padding: 6px; border-radius: 8px; }
+        body { font-family: monospace; max-width: 800px; margin: 20px auto; padding: 20px; background: #f0f0f0; }
+        .debug { background: #fff; border: 1px solid #ccc; padding: 10px; margin: 10px 0; white-space: pre-wrap; }
+        .error { color: red; }
+        .success { color: green; }
     </style>
 </head>
 <body>
-    <h1>📚 Học Toán cùng Thầy</h1>
-    <div class="card">
-        <label>🧑‍🎓 Chọn lớp của em: </label>
-        <select id="classSelect">
-            <option value="11A4">11A4</option>
-            <option value="11A5">11A5</option>
-            <option value="11A6">11A6</option>
-        </select>
-        <button id="saveClassBtn" style="margin-left: 10px;">Lưu</button>
-    </div>
-
-    <div id="deList" class="card">Đang tải đề thi...</div>
+    <h1>🔍 Kiểm tra trạng thái đề</h1>
+    <div id="debugInfo" class="debug">Đang tải...</div>
+    <div id="deList"></div>
 
     <script>
-        let exams = [];
-        let currentClass = localStorage.getItem("studentClass") || "11A4";
-
-        // Hàm lấy ngày hôm nay theo định dạng YYYY-MM-DD (dựa trên múi giờ của máy)
-        function getTodayYYYYMMDD() {
+        (async function() {
+            const debugDiv = document.getElementById('debugInfo');
+            const deListDiv = document.getElementById('deList');
+            
+            // Lấy ngày hôm nay (YYYY-MM-DD) theo múi giờ local
             const now = new Date();
             const year = now.getFullYear();
             const month = String(now.getMonth() + 1).padStart(2, '0');
             const day = String(now.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
-        }
-
-        document.getElementById("classSelect").value = currentClass;
-        document.getElementById("saveClassBtn").onclick = () => {
-            localStorage.setItem("studentClass", document.getElementById("classSelect").value);
-            currentClass = document.getElementById("classSelect").value;
-            renderExams();
-        };
-
-        async function loadExams() {
-            try {
-                const res = await fetch("exams.json?v=" + Date.now()); // tránh cache
-                exams = await res.json();
-                renderExams();
-            } catch(e) {
-                document.getElementById("deList").innerHTML = "<p>⚠️ Không thể tải danh sách đề. Vui lòng thử lại sau.</p>";
-                console.error(e);
-            }
-        }
-
-        function renderExams() {
-            const today = getTodayYYYYMMDD();
-            console.log("Hôm nay (YYYY-MM-DD):", today); // kiểm tra trên console
-
-            const filtered = exams.filter(ex => ex.class === currentClass);
+            const today = `${year}-${month}-${day}`;
             
+            debugDiv.innerHTML += `📅 Hôm nay (theo máy tính): ${today}\n`;
+            
+            // Fetch exams.json
+            let exams = [];
+            try {
+                const res = await fetch('exams.json?t=' + Date.now());
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                exams = await res.json();
+                debugDiv.innerHTML += `✅ Đã tải exams.json, số đề: ${exams.length}\n`;
+                debugDiv.innerHTML += `📄 Nội dung: ${JSON.stringify(exams, null, 2)}\n`;
+            } catch(e) {
+                debugDiv.innerHTML += `❌ Lỗi tải exams.json: ${e.message}\n`;
+                return;
+            }
+            
+            // Lọc theo lớp (mặc định 11A4)
+            const currentClass = "11A4";
+            const filtered = exams.filter(ex => ex.class === currentClass);
+            debugDiv.innerHTML += `🎓 Lớp chọn: ${currentClass}, số đề phù hợp: ${filtered.length}\n`;
+            
+            if (filtered.length === 0) {
+                deListDiv.innerHTML = `<p>Không có đề nào cho lớp ${currentClass}.</p>`;
+                return;
+            }
+            
+            // Xử lý từng đề
             let openList = [];
             let futureList = [];
             let closedList = [];
-
-            filtered.forEach(ex => {
-                // So sánh chuỗi trực tiếp vì định dạng YYYY-MM-DD cho phép so sánh từ điển
-                if (today >= ex.open && today <= ex.close) {
-                    openList.push(ex);
-                } else if (today < ex.open) {
-                    futureList.push(ex);
-                } else {
-                    closedList.push(ex);
-                }
-            });
-
-            let html = "";
+            
+            for (let ex of filtered) {
+                debugDiv.innerHTML += `\n--- Đề: ${ex.title} ---\n`;
+                debugDiv.innerHTML += `  open : ${ex.open}\n`;
+                debugDiv.innerHTML += `  close: ${ex.close}\n`;
+                debugDiv.innerHTML += `  today: ${today}\n`;
+                
+                const isOpen = (today >= ex.open && today <= ex.close);
+                const isFuture = (today < ex.open);
+                const isClosed = (today > ex.close);
+                
+                debugDiv.innerHTML += `  >= open ? ${today >= ex.open} (${today} >= ${ex.open})\n`;
+                debugDiv.innerHTML += `  <= close? ${today <= ex.close} (${today} <= ${ex.close})\n`;
+                debugDiv.innerHTML += `  Kết luận: ${isOpen ? 'ĐANG MỞ' : (isFuture ? 'SẮP MỞ' : 'ĐÃ ĐÓNG')}\n`;
+                
+                if (isOpen) openList.push(ex);
+                else if (isFuture) futureList.push(ex);
+                else closedList.push(ex);
+            }
+            
+            // Hiển thị danh sách
+            let html = '';
             if (openList.length) {
                 html += `<h2>🔥 Đề đang mở</h2>`;
                 openList.forEach(ex => {
-                    html += `<div class="de-item">
-                        <div class="de-title">📄 ${ex.title}</div>
-                        <div class="de-meta">📅 Hạn nộp: ${ex.close} | Tuần: ${ex.week}</div>
-                        <a href="${ex.html}" class="btn btn-small">✍️ Làm bài ngay</a>
-                    </div>`;
+                    html += `<div><a href="${ex.html}">${ex.title}</a> (hạn: ${ex.close})</div>`;
                 });
             } else {
-                html += `<h2>🔥 Đề đang mở</h2><p>Hiện chưa có đề mở nào cho lớp ${currentClass}.</p>`;
+                html += `<h2>🔥 Đề đang mở</h2><p>Không có đề nào đang mở.</p>`;
             }
-
-            if (futureList.length) {
-                html += `<h2>📅 Sắp mở</h2>`;
-                futureList.forEach(ex => {
-                    html += `<div class="de-item future">
-                        <div class="de-title">📄 ${ex.title}</div>
-                        <div class="de-meta">🕒 Mở từ: ${ex.open} | Tuần: ${ex.week}</div>
-                    </div>`;
-                });
-            }
-
-            if (closedList.length) {
-                html += `<h2>📚 Kho đề cũ (đã đóng)</h2>`;
-                closedList.forEach(ex => {
-                    html += `<div class="de-item closed">
-                        <div class="de-title">📄 ${ex.title}</div>
-                        <div class="de-meta">⛔ Đã đóng từ: ${ex.close}</div>
-                        <a href="${ex.html}" class="btn btn-small">🔍 Xem đề</a>
-                    </div>`;
-                });
-            }
-
-            document.getElementById("deList").innerHTML = html;
-        }
-
-        loadExams();
+            if (futureList.length) html += `<h2>📅 Sắp mở</h2>${futureList.map(ex=>`<div>${ex.title} (mở từ ${ex.open})</div>`).join('')}`;
+            if (closedList.length) html += `<h2>📚 Đã đóng</h2>${closedList.map(ex=>`<div>${ex.title} (đóng từ ${ex.close})</div>`).join('')}`;
+            
+            deListDiv.innerHTML = html;
+        })();
     </script>
 </body>
 </html>
