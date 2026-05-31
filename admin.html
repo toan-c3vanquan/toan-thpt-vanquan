@@ -31,6 +31,7 @@
     <h2>➕ Thêm nhiều đề mới (chọn nhiều file HTML)</h2>
     <label>Lớp áp dụng * (chọn một hoặc nhiều)</label>
     <div class="checkbox-group" id="classCheckboxes">
+        <label><input type="checkbox" value="2"> Toán 2</label>
         <label><input type="checkbox" value="3"> Toán 3</label>
         <label><input type="checkbox" value="4"> Toán 4</label>
         <label><input type="checkbox" value="5"> Toán 5</label>
@@ -54,7 +55,7 @@
     <input type="file" id="htmlFiles" accept=".html" multiple>
     <div id="selectedFilesList" class="file-list" style="display:none;"></div>
     <button id="addMultipleBtn">➕ Thêm đề & Xuất exams.json (cũ + mới)</button>
-    <div class="warning">⚠️ Mỗi file HTML sẽ tạo một đề riêng, áp dụng cho tất cả mục đã chọn (Toán 3,4,5, 6,7,8,9 ,10,11,12, Ôn TN, Thi thử). Tiêu đề = tên file (bỏ .html). Có thể sửa lại trong exams.json sau.</div>
+    <div class="warning">⚠️ Mỗi file HTML sẽ tạo một đề riêng, áp dụng cho tất cả mục đã chọn. Tiêu đề = tên file (bỏ .html). Có thể sửa lại trong exams.json sau.</div>
 </div>
 <script>
     let currentExams = [];
@@ -105,7 +106,7 @@
         const files = Array.from(fileInput.files);
         if(!files.length){ alert("Chọn ít nhất một file HTML."); return; }
         const selectedGrades = Array.from(document.querySelectorAll('#classCheckboxes input:checked')).map(cb=>cb.value);
-        if(!selectedGrades.length){ alert("Chọn ít nhất một danh mục (Toán 3,4,5,6,7,8,9,10,11,12, Ôn TN, Thi thử)."); return; }
+        if(!selectedGrades.length){ alert("Chọn ít nhất một danh mục (Toán 2..12, Ôn TN, Thi thử)."); return; }
         const week = document.getElementById("week").value.trim();
         const open = document.getElementById("open").value;
         const close = document.getElementById("close").value;
@@ -120,7 +121,7 @@
                     id: id,
                     title: title,
                     grade: grade,
-                    class: grade,   // Để tương thích với cả lọc lớp nếu cần
+                    class: grade,
                     week: week,
                     open: open,
                     close: close,

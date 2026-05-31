@@ -9,11 +9,9 @@
         body { font-family: 'Segoe UI', system-ui, sans-serif; background: #f0f2f5; padding-bottom: 40px; }
         .header { background: #1e3c72; color: white; padding: 16px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         .header h1 { font-size: 1.4rem; text-align: center; }
-        /* Desktop menu */
         .menu-desktop { background: #0f2b4f; display: flex; justify-content: center; gap: 8px; padding: 8px; flex-wrap: wrap; }
         .menu-desktop a { color: white; text-decoration: none; padding: 8px 20px; border-radius: 30px; background: #1e4668; transition: 0.2s; font-weight: bold; }
         .menu-desktop a.active, .menu-desktop a:hover { background: #f39c12; color: #1e3c72; }
-        /* Mobile menu */
         .menu-mobile { display: none; background: #0f2b4f; position: relative; }
         .menu-toggle { background: #f39c12; color: #1e3c72; border: none; font-size: 1.6rem; padding: 8px 16px; width: 100%; text-align: left; font-weight: bold; cursor: pointer; }
         .menu-mobile-list { display: none; flex-direction: column; background: #1e4668; }
@@ -30,6 +28,7 @@
         .closed-card { opacity: 0.7; border-left-color: gray; }
         .future-card { border-left-color: #f39c12; }
         .note { text-align: center; margin-top: 30px; color: #666; }
+        .luot-lam { font-size: 0.8rem; color: #27ae60; margin-top: 8px; font-weight: bold; }
         @media (max-width: 768px) {
             .menu-desktop { display: none; }
             .menu-mobile { display: block; }
@@ -51,7 +50,9 @@
 </div>
 
 <script>
+    // ---------- ĐÃ SỬA: categories với id riêng cho từng lớp ----------
     const categories = [
+        { id: "2", name: "Toán 2" },
         { id: "3", name: "Toán 3" },
         { id: "4", name: "Toán 4" },
         { id: "5", name: "Toán 5" },
@@ -67,6 +68,18 @@
     ];
     let allExams = [];
     let currentCategory = "11";
+
+    // Hàm lấy/set lượt làm bài (dùng localStorage)
+    function getAttempts(examId) {
+        let attempts = JSON.parse(localStorage.getItem("exam_attempts")) || {};
+        return attempts[examId] || 0;
+    }
+    function increaseAttempt(examId) {
+        let attempts = JSON.parse(localStorage.getItem("exam_attempts")) || {};
+        attempts[examId] = (attempts[examId] || 0) + 1;
+        localStorage.setItem("exam_attempts", JSON.stringify(attempts));
+        return attempts[examId];
+    }
 
     function getToday() {
         const d = new Date();
@@ -149,17 +162,28 @@
             if (status === "future") { extraClass = "future-card"; btnText = "⏳ Sắp mở"; btnDisabled = true; }
             if (status === "closed") { extraClass = "closed-card"; btnText = "🔒 Đã đóng"; btnDisabled = true; }
             const btnClass = btnDisabled ? "btn btn-disabled" : "btn";
-            const btnLink = btnDisabled ? "#" : ex.html;
+            const attempts = getAttempts(ex.id);
+            
+            // Xử lý sự kiện click tăng lượt (chỉ khi đề đang mở)
+            const btnOnClick = (!btnDisabled) ? `onclick="event.preventDefault(); increaseAttemptAndRedirect('${ex.id}', '${ex.html}');"` : 'onclick="return false;"';
+            
             return `
                 <div class="de-card ${extraClass}">
                     <h3>📄 ${ex.title}</h3>
                     <div class="de-meta">📅 Mở: ${ex.open} | Đóng: ${ex.close}</div>
                     <div class="de-meta">🏫 Lớp: ${ex.class || "Chung"} | Tuần: ${ex.week || ""}</div>
-                    <a href="${btnLink}" class="${btnClass}" ${btnDisabled ? 'onclick="return false;"' : ''}>${btnText}</a>
+                    <div class="luot-lam">📊 Lượt làm: ${attempts}</div>
+                    <a href="${btnDisabled ? "#" : ex.html}" class="${btnClass}" ${btnOnClick}>${btnText}</a>
                 </div>
             `;
         }).join("");
     }
+
+    // Hàm toàn cục để tăng lượt và chuyển hướng
+    window.increaseAttemptAndRedirect = function(examId, url) {
+        increaseAttempt(examId);
+        window.location.href = url;
+    };
 
     document.getElementById("menuToggle")?.addEventListener("click", () => {
         const menuList = document.getElementById("mobileMenuList");

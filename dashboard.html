@@ -466,7 +466,7 @@
             const cb = document.createElement("input");
             cb.type = "checkbox";
             cb.value = week;
-            cb.checked = true; // mặc định chọn tất cả
+            cb.checked = true;
             label.appendChild(cb);
             label.appendChild(document.createTextNode(week));
             container.appendChild(label);
@@ -501,24 +501,16 @@
         const student = document.getElementById("studentSelectMulti").value;
         const className = document.getElementById("classSelectMulti").value;
 
-        let dataPoints = []; // mảng {week, score} cho từng học sinh hoặc trung bình lớp
         let labels = [];
         let scores = [];
 
         if (student) {
-            // Lấy điểm của học sinh đó qua các tuần
             for (let week of selectedWeeks) {
                 let score = history[week]?.[student];
-                if (score !== undefined) {
-                    labels.push(week);
-                    scores.push(score);
-                } else {
-                    labels.push(week);
-                    scores.push(null);
-                }
+                labels.push(week);
+                scores.push(score !== undefined ? score : undefined);  // sửa: null -> undefined
             }
         } else if (className) {
-            // Tính điểm trung bình của lớp qua các tuần
             for (let week of selectedWeeks) {
                 let weekData = history[week] || {};
                 let total = 0, count = 0;
@@ -528,7 +520,7 @@
                         count++;
                     }
                 }
-                let avg = count > 0 ? (total / count).toFixed(2) : null;
+                let avg = count > 0 ? (total / count).toFixed(2) : undefined;  // sửa: null -> undefined
                 labels.push(week);
                 scores.push(avg);
             }
@@ -537,7 +529,6 @@
             return;
         }
 
-        // Vẽ biểu đồ
         if (trendChart) trendChart.destroy();
         const ctx = document.getElementById("trendChart").getContext("2d");
         trendChart = new Chart(ctx, {
@@ -559,10 +550,9 @@
             }
         });
 
-        // Tạo bảng dữ liệu
         let tableHtml = `<h3>Chi tiết điểm ${student ? student : "lớp " + className}</h3><table><thead><tr><th>Tuần</th><th>Điểm</th></tr></thead><tbody>`;
         for (let i=0; i<labels.length; i++) {
-            tableHtml += `<tr><td>${labels[i]}</td><td>${scores[i] !== null ? scores[i] : "Chưa có"}</td></tr>`;
+            tableHtml += `<tr><td>${labels[i]}</td><td>${scores[i] !== undefined ? scores[i] : "Chưa có"}</td></tr>`;
         }
         tableHtml += `</tbody></table>`;
         document.getElementById("trendTableContainer").innerHTML = tableHtml;
@@ -573,7 +563,6 @@
         const checkboxes = document.querySelectorAll("#weeksCheckboxes input");
         const selectedWeeks = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value).sort();
         if (selectedWeeks.length === 0) { alert("Chọn ít nhất một tuần"); return; }
-        // Lấy tất cả học sinh có trong các tuần đã chọn
         const allStudents = new Set();
         for (let week of selectedWeeks) {
             const weekData = history[week] || {};
