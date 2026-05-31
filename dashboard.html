@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LMS Mini - Dashboard (Fix điểm)</title>
+    <title>LMS Mini - Dashboard Giáo viên (Nhiều tuần)</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
     <style>
         * { box-sizing: border-box; font-family: system-ui, 'Segoe UI', sans-serif; }
         body { max-width: 1400px; margin: 0 auto; padding: 20px; background: #f5f7fb; }
@@ -17,99 +18,130 @@
         input, button, select { padding: 8px 12px; border-radius: 8px; border: 1px solid #ccc; }
         button { background: #1e3c72; color: white; border: none; cursor: pointer; font-weight: bold; }
         button:hover { background: #0f2b4f; }
-        table { border-collapse: collapse; width: 100%; margin-top: 15px; font-size: 14px; }
+        table { border-collapse: collapse; width: 100%; margin-top: 15px; font-size: 14px; overflow-x: auto; display: block; }
         th, td { border: 1px solid #ccc; padding: 8px 10px; text-align: center; }
-        th { background: #e2e8f0; }
+        th { background: #e2e8f0; position: sticky; top: 0; }
         .total-row { background: #fef9e3; font-weight: bold; }
         .badge { background: #e2e8f0; padding: 4px 12px; border-radius: 20px; display: inline-block; margin: 5px; }
         .warning { background: #fee2e2; border-left: 6px solid #dc2626; padding: 12px; margin: 15px 0; }
         textarea { width: 100%; font-family: monospace; padding: 10px; border-radius: 8px; border: 1px solid #ccc; }
-        .nav-tab { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #ccc; }
-        .nav-tab button { background: #e2e8f0; color: #1e3c72; margin-right: 5px; }
+        .nav-tab { display: flex; gap: 10px; margin-bottom: 20px; border-bottom: 1px solid #ccc; flex-wrap: wrap; }
+        .nav-tab button { background: #e2e8f0; color: #1e3c72; margin-right: 5px; padding: 8px 16px; }
         .nav-tab button.active { background: #1e3c72; color: white; }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
+        .week-checkboxes { display: flex; flex-wrap: wrap; gap: 10px; margin: 15px 0; }
+        .week-checkboxes label { display: inline-flex; align-items: center; gap: 5px; background: #f0f0f0; padding: 5px 10px; border-radius: 20px; }
+        canvas { max-width: 100%; margin-top: 20px; }
     </style>
 </head>
 <body>
-<h1>📊 LMS Mini – Dashboard Giáo viên (Fix điểm)</h1>
+<h1>📊 LMS Mini – Dashboard Giáo viên (Hỗ trợ nhiều tuần)</h1>
 
 <div class="nav-tab">
     <button data-tab="stats" class="active">📈 Thống kê điểm</button>
     <button data-tab="history">📜 Lịch sử & Cảnh báo bỏ bài</button>
-    <button data-tab="search">🔍 Tra cứu điểm học sinh</button>
+    <button data-tab="compare2">📊 So sánh 2 tuần</button>
+    <button data-tab="multiweek">📈 Xu hướng nhiều tuần</button>
+    <button data-tab="search">🔍 Tra cứu điểm HS</button>
     <button data-tab="export">📄 Xuất báo cáo PDF</button>
 </div>
 
+<!-- Tab 1: Thống kê điểm -->
 <div id="tab-stats" class="tab-content active">
     <div class="card">
         <div class="flex-row">
-            <div class="file-group">
-                <label><strong>1. Upload file Excel kết quả</strong></label>
-                <input type="file" id="resultFile" accept=".xlsx, .xls, .csv">
-            </div>
-            <div class="file-group">
-                <label><strong>2. Hoặc nhập link Google Sheet (CSV)</strong></label>
-                <input type="text" id="gsheetUrl" placeholder="https://docs.google.com/.../pub?output=csv">
-                <button id="loadGsheetBtn">📥 Đọc từ Google Sheet</button>
-            </div>
-            <div class="file-group">
-                <label><strong>3. File danh sách lớp (cột 'Lớp', 'Tên HS') - tùy chọn</strong></label>
-                <input type="file" id="rosterFile" accept=".xlsx, .xls, .csv">
-            </div>
+            <div class="file-group"><label><strong>1. Upload file Excel</strong></label><input type="file" id="resultFile" accept=".xlsx, .xls, .csv"></div>
+            <div class="file-group"><label><strong>2. Hoặc link Google Sheet (CSV)</strong></label><input type="text" id="gsheetUrl" placeholder="https://.../pub?output=csv"><button id="loadGsheetBtn">📥 Đọc</button></div>
+            <div class="file-group"><label><strong>3. File danh sách lớp (tùy chọn)</strong></label><input type="file" id="rosterFile" accept=".xlsx, .xls, .csv"></div>
         </div>
         <div class="flex-row">
-            <div class="file-group">
-                <label>Tuần (lưu lịch sử)</label>
-                <input type="text" id="weekInput" placeholder="VD: 2026-W22">
-                <button id="saveHistoryBtn">💾 Lưu kết quả tuần này</button>
-            </div>
-            <div class="file-group">
-                <button id="generateBtn" style="margin-top:24px;">📈 Tạo bảng thống kê</button>
-            </div>
+            <div class="file-group"><label>Tuần (lưu lịch sử)</label><input type="text" id="weekInput" placeholder="VD: 2026-W22"><button id="saveHistoryBtn">💾 Lưu tuần này</button></div>
+            <div class="file-group"><button id="generateBtn" style="margin-top:24px;">📈 Tạo bảng thống kê</button></div>
         </div>
         <div id="status" class="badge">Chưa có dữ liệu</div>
     </div>
     <div id="statsTableContainer"></div>
 </div>
 
+<!-- Tab 2: Lịch sử & bỏ bài -->
 <div id="tab-history" class="tab-content">
     <div class="card">
-        <h2>Lịch sử các tuần</h2>
+        <h2>📜 Các tuần đã lưu</h2>
         <div id="historyList"></div>
-        <button id="clearHistoryBtn">🗑️ Xóa lịch sử</button>
+        <button id="clearHistoryBtn">🗑️ Xóa toàn bộ lịch sử</button>
         <h2>⚠️ Học sinh bỏ bài 2 tuần liên tiếp</h2>
         <div id="riskStudents"></div>
     </div>
 </div>
 
+<!-- Tab 3: So sánh 2 tuần -->
+<div id="tab-compare2" class="tab-content">
+    <div class="card">
+        <h2>So sánh 2 tuần bất kỳ</h2>
+        <div class="flex-row">
+            <div class="file-group"><label>Tuần thứ nhất</label><select id="week1Select"></select></div>
+            <div class="file-group"><label>Tuần thứ hai</label><select id="week2Select"></select></div>
+            <button id="compareWeeksBtn">🔍 So sánh</button>
+        </div>
+        <div id="reportTableContainer"></div>
+        <div style="margin-top:20px;"><button id="exportReportCSV">📎 Xuất CSV</button> <button id="generateMessagesBtn">✉️ Sinh lời nhắn PHHS</button></div>
+        <div id="parentMessages"></div>
+    </div>
+</div>
+
+<!-- Tab 4: Xu hướng nhiều tuần (tùy chọn số tuần) -->
+<div id="tab-multiweek" class="tab-content">
+    <div class="card">
+        <h2>📈 Xu hướng điểm số qua nhiều tuần</h2>
+        <div class="flex-row">
+            <div class="file-group"><label>Chọn học sinh</label><select id="studentSelectMulti"></select></div>
+            <div class="file-group"><label>Hoặc chọn lớp</label><select id="classSelectMulti"><option value="">-- Chọn lớp --</option></select></div>
+            <button id="loadTrendBtn">📊 Xem xu hướng</button>
+        </div>
+        <div id="trendControls" style="margin:15px 0;">
+            <label>Chọn các tuần muốn xem (bỏ chọn/tích chọn):</label>
+            <div id="weeksCheckboxes" class="week-checkboxes"></div>
+            <button id="selectAllWeeks">Chọn tất cả</button> <button id="deselectAllWeeks">Bỏ chọn tất cả</button>
+        </div>
+        <div id="trendChartContainer"><canvas id="trendChart" width="800" height="400"></canvas></div>
+        <div id="trendTableContainer" style="overflow-x: auto; margin-top:20px;"></div>
+        <button id="exportMultiCsv">📎 Xuất báo cáo nhiều tuần (CSV)</button>
+    </div>
+</div>
+
+<!-- Tab 5: Tra cứu -->
 <div id="tab-search" class="tab-content">
     <div class="card">
-        <h2>Tra cứu điểm</h2>
-        <input type="text" id="searchName" placeholder="Nhập tên học sinh (VD: Lưu Chí Thức)" style="width:70%">
-        <button id="searchScoreBtn">Tra cứu</button>
+        <h2>Tra cứu điểm cá nhân</h2>
+        <input type="text" id="searchName" placeholder="Nhập tên học sinh" style="width:70%"><button id="searchScoreBtn">Tra cứu</button>
         <div id="searchResult"></div>
     </div>
 </div>
 
+<!-- Tab 6: Xuất PDF -->
 <div id="tab-export" class="tab-content">
     <div class="card">
-        <h2>Xuất báo cáo PDF</h2>
+        <h2>Xuất báo cáo thống kê hiện tại thành PDF</h2>
         <button id="exportPdfBtn">Xuất PDF</button>
     </div>
 </div>
 
 <script>
-    let resultData = [];
+    // ---------- Khởi tạo biến ----------
+    let resultData = [];       // mảng {lop, ten, score}
     let classRoster = new Map();
     let currentStatsHtml = "";
-    const STORAGE_KEY = "examHistory";
+    const STORAGE_KEY = "examHistoryDetailed"; // { week: { "Lớp_Tên": điểm } }
+    let trendChart = null;
 
+    // Helper
     function getToday() {
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
 
+    // ---------- Đọc file Excel ----------
     function readFile(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -118,7 +150,6 @@
                 const workbook = XLSX.read(data, { type: 'array' });
                 const sheet = workbook.Sheets[workbook.SheetNames[0]];
                 const rows = XLSX.utils.sheet_to_json(sheet, { defval: "", header: 1 });
-                // rows là mảng 2 chiều, dòng đầu là header
                 if (!rows.length) reject("Empty sheet");
                 const headers = rows[0];
                 const jsonRows = [];
@@ -152,7 +183,7 @@
     function parseScore(value) {
         if (value === undefined || value === null) return 0;
         let str = String(value).trim();
-        str = str.replace(/,/g, '.');     // thay dấu phẩy bằng chấm
+        str = str.replace(/,/g, '.');
         let match = str.match(/[\d\.\-]+/);
         if (match) {
             let num = parseFloat(match[0]);
@@ -164,33 +195,14 @@
     function processResultRows(rows) {
         if (!rows.length) return [];
         const headers = Object.keys(rows[0]);
-        console.log("📋 Các cột tìm thấy:", headers);
-        
-        // Tìm cột Tên HS
         let nameCol = headers.find(h => h === "Tên HS" || h.includes("Tên HS"));
-        if (!nameCol) {
-            console.error("Không tìm thấy cột Tên HS");
-            return [];
-        }
-        
-        // Tìm cột Điểm - ưu tiên chính xác "Điểm", nếu không thì lấy cột thứ 5 (index 4)
+        if (!nameCol) { console.error("Không tìm thấy cột Tên HS"); return []; }
         let scoreCol = headers.find(h => h === "Điểm");
-        if (!scoreCol && headers.length > 4) {
-            scoreCol = headers[4]; // cột E (index 4)
-            console.warn(`⚠️ Không thấy cột "Điểm", dùng cột thứ 5: "${scoreCol}"`);
-        }
-        if (!scoreCol) {
-            console.error("Không thể xác định cột điểm");
-            return [];
-        }
-        console.log(`✅ Dùng cột điểm: "${scoreCol}"`);
-        
+        if (!scoreCol && headers.length > 4) scoreCol = headers[4];
+        if (!scoreCol) { console.error("Không thể xác định cột điểm"); return []; }
         const timestampCol = headers.find(h => h.includes("Dấu thời gian")) || headers[0];
-        
-        // Sắp xếp theo thời gian để lấy bài cuối
         rows.sort((a,b) => new Date(a[timestampCol]) - new Date(b[timestampCol]));
         const latestMap = new Map();
-        
         for (const row of rows) {
             let fullName = (row[nameCol] || "").trim();
             if (!fullName) continue;
@@ -203,10 +215,8 @@
                 lop = "Khách";
                 ten = fullName;
             }
-            const key = `${lop}||${ten}`;
+            const key = `${lop}_${ten}`;
             let rawScore = row[scoreCol];
-            // In ra console để debug
-            console.log(`Tên: ${fullName}, Điểm thô: ${rawScore} (kiểu: ${typeof rawScore})`);
             let score = parseScore(rawScore);
             if (isNaN(score)) score = 0;
             latestMap.set(key, { lop, ten, score });
@@ -258,21 +268,15 @@
             return a.localeCompare(b);
         });
         const ranges = ["≤1.0", "1.0<2.0", "2.0<3.5", "3.5<5.0", "5<6.5", "6.5<8", "8<9", "9<10"];
-        
         let html = `<div class="card" id="statsCard"><h2>📋 THỐNG KÊ ĐIỂM THI THEO LẦN - ${getToday()}</h2>
         <table><thead><tr><th>MÔN</th><th>Lớp</th><th>Số HS</th>${ranges.map(r=>`<th>${r}<br>SL</th>`).join('')}<th>≥5</th><th>Điểm TB</th></tr>
         <tr><td colspan="3"></td>${ranges.map(()=>`<th>SL</th>`).join('')}<th>SL</th><th>%</th></tr></thead><tbody>`;
-        
         let total = { count:0, sum:0, rangeCounts: new Array(ranges.length).fill(0), ge5:0 };
         for (let lop of allClasses) {
             let scores = classScores.get(lop) || [];
             let rangeCount = new Array(ranges.length).fill(0);
             let sum = 0;
-            for (let s of scores) {
-                sum += s;
-                let idx = ranges.indexOf(getScoreRange(s));
-                if (idx!==-1) rangeCount[idx]++;
-            }
+            for (let s of scores) { sum += s; let idx = ranges.indexOf(getScoreRange(s)); if (idx!==-1) rangeCount[idx]++; }
             let n = scores.length;
             let ge5 = scores.filter(s=>s>=5).length;
             let pct = n ? ((ge5/n)*100).toFixed(2) : "0.00";
@@ -285,15 +289,346 @@
         let totalAvg = total.count ? (total.sum/total.count).toFixed(2) : "0.00";
         let totalPct = total.count ? ((total.ge5/total.count)*100).toFixed(2) : "0.00";
         html += `<tr class="total-row"><td colspan="2"><strong>Tổng</strong></td><td><strong>${total.count}</strong></td>${total.rangeCounts.map(c=>`<td><strong>${c}</strong></td>`).join('')}<td><strong>${total.ge5}</strong></td><td><strong>${totalPct}%</strong></td><td><strong>${totalAvg}</strong></td></tr>`;
-        html += `</tbody></table><div class="note">* Lớp "Khách" là học sinh không có dấu _ trong tên.<br>Điểm được làm sạch (thay dấu phẩy bằng chấm).</div></div>`;
+        html += `</tbody></table><div class="note">* Lớp "Khách" là học sinh không có dấu _ trong tên.</div></div>`;
         document.getElementById("statsTableContainer").innerHTML = html;
         currentStatsHtml = html;
     }
 
-    // Các hàm lưu lịch sử, tra cứu, xuất PDF giữ nguyên (đã có trong code cũ)...
-    // (Tôi giữ nguyên phần này để đảm bảo độ dài, nhưng để ngắn gọn, tôi sẽ bỏ qua và chỉ giữ các hàm chính)
+    // ---------- Lưu lịch sử (chi tiết có điểm) ----------
+    function saveCurrentWeek() {
+        const week = document.getElementById("weekInput").value.trim();
+        if (!week) { alert("Vui lòng nhập tuần (VD: 2026-W22)"); return; }
+        if (!resultData.length) { alert("Chưa có dữ liệu kết quả"); return; }
+        let history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        const weekData = {};
+        for (let item of resultData) {
+            const key = `${item.lop}_${item.ten}`;
+            weekData[key] = item.score;
+        }
+        history[week] = weekData;
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
+        alert(`Đã lưu tuần ${week} với ${Object.keys(weekData).length} HS.`);
+        renderHistoryTab();
+        renderWeekSelects();
+        renderMultiWeekCheckboxes();
+    }
 
-    // Khởi tạo sự kiện...
+    function renderHistoryTab() {
+        const history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        const weeks = Object.keys(history).sort();
+        let html = `<ul>`;
+        for (let w of weeks) {
+            let count = Object.keys(history[w]).length;
+            html += `<li><strong>${w}</strong>: ${count} HS đã làm (có điểm)</li>`;
+        }
+        html += `</ul>`;
+        document.getElementById("historyList").innerHTML = html || "<p>Chưa có lịch sử.</p>";
+        // Cảnh báo bỏ bài (nếu có roster)
+        if (classRoster.size === 0) {
+            document.getElementById("riskStudents").innerHTML = "<p>Hãy upload file danh sách lớp để theo dõi bỏ bài.</p>";
+            return;
+        }
+        const sortedWeeks = weeks.slice(-4);
+        if (sortedWeeks.length < 2) { document.getElementById("riskStudents").innerHTML = "<p>Cần ít nhất 2 tuần để phát hiện bỏ bài.</p>"; return; }
+        let attendance = new Map();
+        for (let w of sortedWeeks) {
+            for (let student of Object.keys(history[w])) {
+                if (!attendance.has(student)) attendance.set(student, new Set());
+                attendance.get(student).add(w);
+            }
+        }
+        let riskList = [];
+        for (let [lop, students] of classRoster.entries()) {
+            for (let ten of students) {
+                const key = `${lop}_${ten}`;
+                let missingCount = 0;
+                for (let i = 0; i < sortedWeeks.length; i++) {
+                    const w = sortedWeeks[i];
+                    if (attendance.get(key)?.has(w)) missingCount = 0;
+                    else missingCount++;
+                    if (missingCount >= 2) {
+                        riskList.push({ lop, ten, lastWeeks: sortedWeeks.slice(i-1, i+1) });
+                        break;
+                    }
+                }
+            }
+        }
+        if (riskList.length === 0) document.getElementById("riskStudents").innerHTML = "<div class='badge'>✅ Không có học sinh bỏ bài 2 tuần liên tiếp.</div>";
+        else {
+            let riskHtml = `<div class="warning">⚠️ Học sinh có nguy cơ bỏ bài:<ul>`;
+            riskList.forEach(r => { riskHtml += `<li>${r.lop}_${r.ten} (vắng tuần ${r.lastWeeks.join(", ")})</li>`; });
+            riskHtml += `</ul></div>`;
+            document.getElementById("riskStudents").innerHTML = riskHtml;
+        }
+    }
+
+    // Render danh sách tuần cho dropdown so sánh 2 tuần
+    function renderWeekSelects() {
+        const history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        const weeks = Object.keys(history).sort().reverse();
+        const week1Select = document.getElementById("week1Select");
+        const week2Select = document.getElementById("week2Select");
+        if (!week1Select) return;
+        week1Select.innerHTML = '<option value="">-- Chọn tuần --</option>';
+        week2Select.innerHTML = '<option value="">-- Chọn tuần --</option>';
+        weeks.forEach(w => {
+            week1Select.appendChild(new Option(w, w));
+            week2Select.appendChild(new Option(w, w));
+        });
+        if (weeks.length >= 2) {
+            week1Select.value = weeks[1];
+            week2Select.value = weeks[0];
+        } else if (weeks.length === 1) {
+            week1Select.value = weeks[0];
+        }
+    }
+
+    // So sánh 2 tuần
+    function compareTwoWeeks() {
+        const week1 = document.getElementById("week1Select").value;
+        const week2 = document.getElementById("week2Select").value;
+        if (!week1 || !week2) { alert("Chọn đủ 2 tuần"); return; }
+        const history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        const data1 = history[week1] || {};
+        const data2 = history[week2] || {};
+        const allStudents = new Set([...Object.keys(data1), ...Object.keys(data2)]);
+        const report = [];
+        for (let student of allStudents) {
+            const score1 = data1[student] !== undefined ? data1[student] : null;
+            const score2 = data2[student] !== undefined ? data2[student] : null;
+            let change = null;
+            if (score1 !== null && score2 !== null) change = (score2 - score1).toFixed(2);
+            report.push({
+                student,
+                score1: score1 !== null ? score1.toFixed(2) : "Chưa làm",
+                score2: score2 !== null ? score2.toFixed(2) : "Chưa làm",
+                change: change !== null ? (change >= 0 ? `+${change}` : change) : "---"
+            });
+        }
+        report.sort((a,b) => a.student.localeCompare(b.student));
+        let html = `<h3>So sánh ${week1} và ${week2}</h3><table><thead><tr><th>Học sinh</th><th>${week1}</th><th>${week2}</th><th>Tiến bộ</th></tr></thead><tbody>`;
+        for (let r of report) {
+            let changeClass = "";
+            if (r.change !== "---") changeClass = parseFloat(r.change) >= 0 ? "style='color:green'" : "style='color:red'";
+            html += `<tr><td>${r.student}</td><td>${r.score1}</td><td>${r.score2}</td><td ${changeClass}>${r.change}</td></tr>`;
+        }
+        html += `</tbody></table>`;
+        document.getElementById("reportTableContainer").innerHTML = html;
+        window.currentReport = report;
+        window.week1Name = week1;
+        window.week2Name = week2;
+    }
+
+    function exportReportCSV() {
+        if (!window.currentReport || !window.currentReport.length) { alert("Chưa có dữ liệu so sánh"); return; }
+        let csvRows = [["Học sinh", window.week1Name, window.week2Name, "Tiến bộ"]];
+        for (let r of window.currentReport) {
+            csvRows.push([r.student, r.score1, r.score2, r.change]);
+        }
+        const csvContent = csvRows.map(row => row.join(",")).join("\n");
+        const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.setAttribute("download", `baocao_${window.week1Name}_${window.week2Name}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    function generateParentMessages() {
+        if (!window.currentReport || !window.currentReport.length) { alert("Chưa có dữ liệu so sánh"); return; }
+        let messages = "";
+        for (let r of window.currentReport) {
+            let [lop, ten] = r.student.split("_");
+            let changeText = "";
+            if (r.change !== "---") {
+                let num = parseFloat(r.change);
+                changeText = num >= 0 ? `tăng ${r.change} điểm` : `giảm ${Math.abs(num)} điểm`;
+                changeText = `, ${changeText}`;
+            }
+            messages += `Kính gửi PHHS em ${ten} (lớp ${lop}),\nKết quả 2 tuần gần nhất:\n- Tuần ${window.week1Name}: ${r.score1}\n- Tuần ${window.week2Name}: ${r.score2}\nNhận xét: ${r.change !== "---" ? changeText : "chưa đủ dữ liệu để so sánh"}.\nTrân trọng.\n\n`;
+        }
+        const msgDiv = document.getElementById("parentMessages");
+        msgDiv.innerHTML = `<textarea rows="15" style="width:100%">${messages}</textarea><p>📋 Sao chép nội dung trên để gửi Zalo/Email cho phụ huynh.</p>`;
+    }
+
+    // ---------- Nhiều tuần (Xu hướng) ----------
+    function renderMultiWeekCheckboxes() {
+        const history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        const weeks = Object.keys(history).sort();
+        const container = document.getElementById("weeksCheckboxes");
+        if (!container) return;
+        container.innerHTML = "";
+        weeks.forEach(week => {
+            const label = document.createElement("label");
+            const cb = document.createElement("input");
+            cb.type = "checkbox";
+            cb.value = week;
+            cb.checked = true; // mặc định chọn tất cả
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(week));
+            container.appendChild(label);
+        });
+        // Cập nhật danh sách học sinh và lớp cho dropdown
+        const allStudentsSet = new Set();
+        const allClassesSet = new Set();
+        for (let week of weeks) {
+            for (let student of Object.keys(history[week])) {
+                allStudentsSet.add(student);
+                let lop = student.split("_")[0];
+                if (lop) allClassesSet.add(lop);
+            }
+        }
+        const studentSelect = document.getElementById("studentSelectMulti");
+        studentSelect.innerHTML = '<option value="">-- Chọn học sinh --</option>';
+        Array.from(allStudentsSet).sort().forEach(s => {
+            studentSelect.appendChild(new Option(s, s));
+        });
+        const classSelect = document.getElementById("classSelectMulti");
+        classSelect.innerHTML = '<option value="">-- Chọn lớp --</option>';
+        Array.from(allClassesSet).sort().forEach(c => {
+            classSelect.appendChild(new Option(c, c));
+        });
+    }
+
+    function loadTrend() {
+        const history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        const checkboxes = document.querySelectorAll("#weeksCheckboxes input");
+        const selectedWeeks = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value).sort();
+        if (selectedWeeks.length === 0) { alert("Chọn ít nhất một tuần"); return; }
+        const student = document.getElementById("studentSelectMulti").value;
+        const className = document.getElementById("classSelectMulti").value;
+
+        let dataPoints = []; // mảng {week, score} cho từng học sinh hoặc trung bình lớp
+        let labels = [];
+        let scores = [];
+
+        if (student) {
+            // Lấy điểm của học sinh đó qua các tuần
+            for (let week of selectedWeeks) {
+                let score = history[week]?.[student];
+                if (score !== undefined) {
+                    labels.push(week);
+                    scores.push(score);
+                } else {
+                    labels.push(week);
+                    scores.push(null);
+                }
+            }
+        } else if (className) {
+            // Tính điểm trung bình của lớp qua các tuần
+            for (let week of selectedWeeks) {
+                let weekData = history[week] || {};
+                let total = 0, count = 0;
+                for (let [studentKey, score] of Object.entries(weekData)) {
+                    if (studentKey.startsWith(className + "_")) {
+                        total += score;
+                        count++;
+                    }
+                }
+                let avg = count > 0 ? (total / count).toFixed(2) : null;
+                labels.push(week);
+                scores.push(avg);
+            }
+        } else {
+            alert("Vui lòng chọn học sinh hoặc lớp.");
+            return;
+        }
+
+        // Vẽ biểu đồ
+        if (trendChart) trendChart.destroy();
+        const ctx = document.getElementById("trendChart").getContext("2d");
+        trendChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: student ? `Điểm của ${student}` : `Điểm TB lớp ${className}`,
+                    data: scores,
+                    borderColor: 'rgb(30, 60, 114)',
+                    backgroundColor: 'rgba(30, 60, 114, 0.1)',
+                    tension: 0.1,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true, max: 10 } }
+            }
+        });
+
+        // Tạo bảng dữ liệu
+        let tableHtml = `<h3>Chi tiết điểm ${student ? student : "lớp " + className}</h3><table><thead><tr><th>Tuần</th><th>Điểm</th></tr></thead><tbody>`;
+        for (let i=0; i<labels.length; i++) {
+            tableHtml += `<tr><td>${labels[i]}</td><td>${scores[i] !== null ? scores[i] : "Chưa có"}</td></tr>`;
+        }
+        tableHtml += `</tbody></table>`;
+        document.getElementById("trendTableContainer").innerHTML = tableHtml;
+    }
+
+    function exportMultiWeekCsv() {
+        const history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        const checkboxes = document.querySelectorAll("#weeksCheckboxes input");
+        const selectedWeeks = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value).sort();
+        if (selectedWeeks.length === 0) { alert("Chọn ít nhất một tuần"); return; }
+        // Lấy tất cả học sinh có trong các tuần đã chọn
+        const allStudents = new Set();
+        for (let week of selectedWeeks) {
+            const weekData = history[week] || {};
+            for (let student of Object.keys(weekData)) allStudents.add(student);
+        }
+        const studentsList = Array.from(allStudents).sort();
+        const csvRows = [["Học sinh", ...selectedWeeks]];
+        for (let student of studentsList) {
+            let row = [student];
+            for (let week of selectedWeeks) {
+                let score = history[week]?.[student];
+                row.push(score !== undefined ? score : "Chưa làm");
+            }
+            csvRows.push(row);
+        }
+        const csvContent = csvRows.map(row => row.join(",")).join("\n");
+        const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.setAttribute("download", `baocao_nhieu_tuan.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+    }
+
+    // ---------- Tra cứu ----------
+    function searchStudentScore() {
+        const name = document.getElementById("searchName").value.trim();
+        if (!name) return;
+        if (!resultData.length) { document.getElementById("searchResult").innerHTML = "<p>Chưa có dữ liệu kết quả.</p>"; return; }
+        const found = resultData.filter(item => item.ten === name);
+        if (found.length === 0) { document.getElementById("searchResult").innerHTML = `<p>Không tìm thấy học sinh "${name}"</p>`; return; }
+        let html = `<h3>Kết quả của "${name}"</h3><ul>`;
+        found.forEach(f => { html += `<li>Lớp ${f.lop}: Điểm ${f.score}</li>`; });
+        html += `</ul>`;
+        document.getElementById("searchResult").innerHTML = html;
+    }
+
+    async function exportToPDF() {
+        if (!currentStatsHtml) { alert("Chưa có bảng thống kê."); return; }
+        const element = document.getElementById("statsCard");
+        if (!element) return;
+        const canvas = await html2canvas(element, { scale: 2 });
+        const imgData = canvas.toDataURL('image/png');
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('landscape', 'mm', 'a4');
+        const imgWidth = 280;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        pdf.addImage(imgData, 'PNG', 10, 10, imgWidth, imgHeight);
+        pdf.save(`thong_ke_${getToday()}.pdf`);
+    }
+
+    // ---------- Sự kiện ----------
     let resultLoaded = false, rosterLoaded = false;
     document.getElementById("resultFile").onchange = async (e) => {
         let file = e.target.files[0];
@@ -335,48 +670,42 @@
         if (!resultLoaded) alert("Hãy upload file kết quả trước.");
         else generateStats();
     };
-    document.getElementById("saveHistoryBtn").onclick = () => {
-        let week = document.getElementById("weekInput").value.trim();
-        if (!week) { alert("Nhập tuần"); return; }
-        if (!resultData.length) { alert("Chưa có dữ liệu"); return; }
-        let history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-        history[week] = resultData.map(x=>`${x.lop}_${x.ten}`);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-        alert("Đã lưu");
-    };
-    document.getElementById("searchScoreBtn").onclick = () => {
-        let name = document.getElementById("searchName").value.trim();
-        if (!name) return;
-        let found = resultData.filter(x=>x.ten === name);
-        if (!found.length) { document.getElementById("searchResult").innerHTML = "<p>Không tìm thấy</p>"; return; }
-        let html = `<h3>Kết quả của ${name}</h3><ul>`;
-        found.forEach(f=>html+=`<li>Lớp ${f.lop}: ${f.score} điểm</li>`);
-        html+=`</ul>`;
-        document.getElementById("searchResult").innerHTML = html;
-    };
-    document.getElementById("exportPdfBtn").onclick = async () => {
-        if (!currentStatsHtml) { alert("Chưa có bảng thống kê"); return; }
-        let el = document.getElementById("statsCard");
-        let canvas = await html2canvas(el, { scale:2 });
-        let img = canvas.toDataURL('image/png');
-        let { jsPDF } = window.jspdf;
-        let pdf = new jsPDF('landscape');
-        pdf.addImage(img, 'PNG', 10, 10, 280, 150);
-        pdf.save(`thongke_${getToday()}.pdf`);
-    };
+    document.getElementById("saveHistoryBtn").onclick = saveCurrentWeek;
     document.getElementById("clearHistoryBtn").onclick = () => {
-        if(confirm("Xóa hết lịch sử?")) localStorage.removeItem(STORAGE_KEY);
+        if (confirm("Xóa toàn bộ lịch sử?")) { localStorage.removeItem(STORAGE_KEY); renderHistoryTab(); renderWeekSelects(); renderMultiWeekCheckboxes(); }
     };
+    document.getElementById("compareWeeksBtn").onclick = compareTwoWeeks;
+    document.getElementById("exportReportCSV").onclick = exportReportCSV;
+    document.getElementById("generateMessagesBtn").onclick = generateParentMessages;
+    document.getElementById("searchScoreBtn").onclick = searchStudentScore;
+    document.getElementById("exportPdfBtn").onclick = exportToPDF;
+    document.getElementById("loadTrendBtn").onclick = loadTrend;
+    document.getElementById("exportMultiCsv").onclick = exportMultiWeekCsv;
+    document.getElementById("selectAllWeeks").onclick = () => {
+        document.querySelectorAll("#weeksCheckboxes input").forEach(cb => cb.checked = true);
+    };
+    document.getElementById("deselectAllWeeks").onclick = () => {
+        document.querySelectorAll("#weeksCheckboxes input").forEach(cb => cb.checked = false);
+    };
+
     // Tab switching
-    document.querySelectorAll(".nav-tab button").forEach(btn=>{
-        btn.onclick = ()=>{
+    document.querySelectorAll(".nav-tab button").forEach(btn => {
+        btn.onclick = () => {
             let id = btn.getAttribute("data-tab");
-            document.querySelectorAll(".tab-content").forEach(tab=>tab.classList.remove("active"));
+            document.querySelectorAll(".tab-content").forEach(tab => tab.classList.remove("active"));
             document.getElementById(`tab-${id}`).classList.add("active");
-            document.querySelectorAll(".nav-tab button").forEach(b=>b.classList.remove("active"));
+            document.querySelectorAll(".nav-tab button").forEach(b => b.classList.remove("active"));
             btn.classList.add("active");
+            if (id === "history") renderHistoryTab();
+            if (id === "compare2") renderWeekSelects();
+            if (id === "multiweek") { renderMultiWeekCheckboxes(); loadTrend(); }
         };
     });
+
+    // Khởi tạo
+    renderHistoryTab();
+    renderWeekSelects();
+    renderMultiWeekCheckboxes();
 </script>
 </body>
 </html>
