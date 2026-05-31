@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LMS Mini - Dashboard Giáo viên (Chuẩn điểm)</title>
+    <title>LMS Mini - Dashboard Giáo viên (Có khách)</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -32,7 +32,7 @@
     </style>
 </head>
 <body>
-<h1>📊 LMS Mini – Dashboard Giáo viên (Chuẩn điểm)</h1>
+<h1>📊 LMS Mini – Dashboard Giáo viên (Có thống kê khách)</h1>
 
 <div class="nav-tab">
     <button data-tab="stats" class="active">📈 Thống kê điểm</button>
@@ -55,7 +55,7 @@
                 <button id="loadGsheetBtn" style="margin-top:5px;">📥 Đọc từ Google Sheet</button>
             </div>
             <div class="file-group">
-                <label><strong>3. File danh sách lớp (cột 'Lớp', 'Tên HS')</strong></label>
+                <label><strong>3. File danh sách lớp (cột 'Lớp', 'Tên HS') - chỉ dùng cho cảnh báo bỏ bài</strong></label>
                 <input type="file" id="rosterFile" accept=".xlsx, .xls, .csv">
             </div>
         </div>
@@ -89,7 +89,7 @@
 <div id="tab-search" class="tab-content">
     <div class="card">
         <h2>🔍 Tra cứu điểm cá nhân</h2>
-        <input type="text" id="searchName" placeholder="Nhập Lớp_Tên (VD: 11A4_Lưu Chí Thức)" style="width: 70%;">
+        <input type="text" id="searchName" placeholder="Nhập Tên (VD: Lưu Chí Thức hoặc tên khách)" style="width: 70%;">
         <button id="searchScoreBtn">Tra cứu</button>
         <div id="searchResult" style="margin-top: 20px;"></div>
     </div>
@@ -105,9 +105,9 @@
 </div>
 
 <script>
-    // ---------- Khởi tạo biến toàn cục ----------
+    // ---------- Khởi tạo biến ----------
     let resultData = [];       // mảng {lop, ten, score}
-    let classRoster = new Map(); // Map<lop, Set<ten>>
+    let classRoster = new Map();
     let currentStatsHtml = "";
     const STORAGE_KEY = "examHistory";
 
@@ -116,7 +116,7 @@
         return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
     }
 
-    // ---------- Đọc file Excel ----------
+    // Đọc file Excel
     function readFile(file) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -132,7 +132,7 @@
         });
     }
 
-    // Parse CSV đơn giản
+    // Parse CSV
     function parseCSV(csvText) {
         const lines = csvText.split(/\r?\n/);
         if (lines.length < 2) return [];
@@ -148,15 +148,27 @@
         return rows;
     }
 
-    // HÀM XỬ LÝ DỮ LIỆU ĐÃ SỬA - LẤY CHÍNH XÁC CỘT "Điểm"
+    // Hàm xử lý điểm: loại bỏ mọi ký tự không phải số, dấu chấm, dấu phẩy
+    function parseScore(value) {
+        if (value === undefined || value === null) return 0;
+        let str = String(value).trim();
+        // Thay dấu phẩy bằng dấu chấm
+        str = str.replace(/,/g, '.');
+        // Giữ lại số, dấu chấm, dấu trừ
+        const match = str.match(/[\d\.\-]+/);
+        if (match) {
+            let num = parseFloat(match[0]);
+            return isNaN(num) ? 0 : num;
+        }
+        return 0;
+    }
+
+    // Xử lý dữ liệu thô -> resultData (bao gồm cả khách)
     function processResultRows(rows) {
         if (!rows.length) return [];
         const headers = Object.keys(rows[0]);
-        // Tìm cột thời gian
         const timestampCol = headers.find(h => h.includes("Dấu thời gian") || h.toLowerCase().includes("timestamp")) || headers[0];
-        // Tìm cột Tên HS - chính xác
         const nameCol = headers.find(h => h === "Tên HS" || h.includes("Tên HS"));
-        // Tìm cột Điểm - ưu tiên chính xác "Điểm"
         let scoreCol = headers.find(h => h === "Điểm");
         if (!scoreCol) scoreCol = headers.find(h => h.toLowerCase().includes("điểm"));
         if (!scoreCol) {
@@ -164,30 +176,36 @@
             return [];
         }
         console.log("Cột điểm được dùng:", scoreCol);
-        
-        // Lọc học sinh có dấu _
-        const valid = rows.filter(row => row[nameCol] && row[nameCol].includes("_"));
-        // Sắp xếp theo thời gian
-        valid.sort((a,b) => new Date(a[timestampCol]) - new Date(b[timestampCol]));
+
+        // Lấy tất cả dòng (không lọc)
+        const allRows = [...rows];
+        // Sắp xếp theo thời gian (lấy lần cuối)
+        allRows.sort((a,b) => new Date(a[timestampCol]) - new Date(b[timestampCol]));
         const latestMap = new Map();
-        for (const row of valid) {
-            const full = row[nameCol];
-            const underIdx = full.indexOf("_");
-            const lop = full.substring(0, underIdx).trim();
-            const ten = full.substring(underIdx+1).trim();
+
+        for (const row of allRows) {
+            let fullName = row[nameCol] || "";
+            fullName = fullName.trim();
+            let lop, ten;
+            if (fullName.includes("_")) {
+                const underIdx = fullName.indexOf("_");
+                lop = fullName.substring(0, underIdx).trim();
+                ten = fullName.substring(underIdx+1).trim();
+            } else {
+                // Khách: lớp = "Khách", tên = tên gốc
+                lop = "Khách";
+                ten = fullName;
+                if (ten === "") continue;
+            }
             const key = `${lop}||${ten}`;
-            // Lấy điểm, xử lý số
-            let rawScore = row[scoreCol];
-            // Nếu là string thì thay dấu phẩy bằng chấm
-            if (typeof rawScore === "string") rawScore = rawScore.replace(",", ".");
-            let score = parseFloat(rawScore);
-            if (isNaN(score)) score = 0;
+            const rawScore = row[scoreCol];
+            const score = parseScore(rawScore);
             latestMap.set(key, { lop, ten, score });
         }
         return Array.from(latestMap.values());
     }
 
-    // Xử lý file danh sách lớp
+    // Xử lý danh sách lớp (chỉ dùng cho bỏ bài)
     function processRosterRows(rows) {
         const headers = rows.length ? Object.keys(rows[0]) : [];
         const classCol = headers.find(h => h === "Lớp" || h.toLowerCase() === "lop");
@@ -228,19 +246,22 @@
             if (!classScores.has(item.lop)) classScores.set(item.lop, []);
             classScores.get(item.lop).push(item.score);
         }
-        const allClasses = new Set([...classScores.keys(), ...classRoster.keys()]);
-        const sortedClasses = Array.from(allClasses).sort();
+        // Danh sách lớp bao gồm cả Khách và các lớp trong roster (nếu có)
+        const allClasses = new Set([...classScores.keys()]);
+        const sortedClasses = Array.from(allClasses).sort((a,b) => {
+            if (a === "Khách") return 1;
+            if (b === "Khách") return -1;
+            return a.localeCompare(b);
+        });
         const ranges = ["≤1.0", "1.0<2.0", "2.0<3.5", "3.5<5.0", "5<6.5", "6.5<8", "8<9", "9<10"];
         
         let html = `<div class="card" id="statsCard"><h2>📋 THỐNG KÊ ĐIỂM THI THEO LẦN - ${getToday()}</h2>
-        <table><thead><tr><th>MÔN</th><th>Lớp</th><th>Sĩ số</th>${ranges.map(r=>`<th>${r}<br>SL</th>`).join('')}<th>Lần điểm ≥5</th><th>Điểm TB</th></tr>
+        <table><thead><tr><th>MÔN</th><th>Lớp</th><th>Số HS đã làm</th>${ranges.map(r=>`<th>${r}<br>SL</th>`).join('')}<th>Lần điểm ≥5</th><th>Điểm TB</th></tr>
         <tr><td colspan="3"></td>${ranges.map(()=>`<th>SL</th>`).join('')}<th>SL</th><th>%</th><th></th></tr></thead><tbody>`;
         
-        let totalAll = { count:0, sum:0, totalStudents:0, rangeCounts: new Array(ranges.length).fill(0), ge5Count:0 };
+        let totalAll = { count:0, sum:0, rangeCounts: new Array(ranges.length).fill(0), ge5Count:0 };
         for (let lop of sortedClasses) {
             const scores = classScores.get(lop) || [];
-            const rosterSet = classRoster.get(lop);
-            const siSo = rosterSet ? rosterSet.size : (scores.length > 0 ? scores.length : 0);
             const rangeCount = new Array(ranges.length).fill(0);
             let sum = 0;
             for (let s of scores) { sum += s; const idx = ranges.indexOf(getScoreRange(s)); if (idx!==-1) rangeCount[idx]++; }
@@ -248,15 +269,15 @@
             const ge5 = scores.filter(s=>s>=5).length;
             const percentGe5 = soLuong ? ((ge5/soLuong)*100).toFixed(2) : "0.00";
             const avg = soLuong ? (sum/soLuong).toFixed(2) : "0.00";
-            totalAll.count += soLuong; totalAll.sum += sum; totalAll.totalStudents += siSo;
+            totalAll.count += soLuong; totalAll.sum += sum;
             for (let i=0;i<ranges.length;i++) totalAll.rangeCounts[i] += rangeCount[i];
             totalAll.ge5Count += ge5;
-            html += `<tr><td>Toán</td><td>${lop}</td><td>${siSo}</td>${rangeCount.map(c=>`<td>${c}</td>`).join('')}<td>${ge5}</td><td>${percentGe5}%</td><td>${avg}</td></tr>`;
+            html += `<tr><td>Toán</td><td>${lop}</td><td>${soLuong}</td>${rangeCount.map(c=>`<td>${c}</td>`).join('')}<td>${ge5}</td><td>${percentGe5}%</td><td>${avg}</td></tr>`;
         }
         const totalAvg = totalAll.count ? (totalAll.sum/totalAll.count).toFixed(2) : "0.00";
         const totalPercentGe5 = totalAll.count ? ((totalAll.ge5Count/totalAll.count)*100).toFixed(2) : "0.00";
-        html += `<tr class="total-row"><td colspan="2"><strong>Tổng</strong></td><td><strong>${totalAll.totalStudents}</strong></td>${totalAll.rangeCounts.map(c=>`<td><strong>${c}</strong></td>`).join('')}<td><strong>${totalAll.ge5Count}</strong></td><td><strong>${totalPercentGe5}%</strong></td><td><strong>${totalAvg}</strong></td></tr>`;
-        html += `</tbody></table><div class="note">* Sĩ số từ danh sách lớp (nếu có).</div></div>`;
+        html += `<tr class="total-row"><td colspan="2"><strong>Tổng</strong></td><td><strong>${totalAll.count}</strong></td>${totalAll.rangeCounts.map(c=>`<td><strong>${c}</strong></td>`).join('')}<td><strong>${totalAll.ge5Count}</strong></td><td><strong>${totalPercentGe5}%</strong></td><td><strong>${totalAvg}</strong></td></tr>`;
+        html += `</tbody><table><div class="note">* Lớp "Khách" là những học sinh không có dấu gạch dưới trong tên.<br>Điểm được tự động làm sạch (thay dấu phẩy bằng chấm, bỏ ký tự lạ).</div></div>`;
         document.getElementById("statsTableContainer").innerHTML = html;
         currentStatsHtml = html;
         return html;
@@ -266,7 +287,7 @@
     function saveCurrentWeek() {
         const week = document.getElementById("weekInput").value.trim();
         if (!week) { alert("Vui lòng nhập tuần"); return; }
-        if (!resultData.length) { alert("Chưa có dữ liệu kết quả"); return; }
+        if (!resultData.length) { alert("Chưa có dữ liệu"); return; }
         let history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
         const studentList = resultData.map(item => `${item.lop}_${item.ten}`);
         history[week] = studentList;
@@ -283,7 +304,7 @@
         html += `</ul>`;
         document.getElementById("historyList").innerHTML = html || "<p>Chưa có lịch sử.</p>";
         if (classRoster.size === 0) {
-            document.getElementById("riskStudents").innerHTML = "<p>Hãy upload file danh sách lớp để theo dõi bỏ bài.</p>";
+            document.getElementById("riskStudents").innerHTML = "<p>Hãy upload file danh sách lớp để theo dõi bỏ bài (chỉ áp dụng cho học sinh chính thức, không cho khách).</p>";
             return;
         }
         const sortedWeeks = weeks.slice(-4);
@@ -324,10 +345,11 @@
         const name = document.getElementById("searchName").value.trim();
         if (!name) return;
         if (!resultData.length) { document.getElementById("searchResult").innerHTML = "<p>Chưa có dữ liệu kết quả.</p>"; return; }
-        const found = resultData.filter(item => `${item.lop}_${item.ten}` === name);
-        if (found.length === 0) { document.getElementById("searchResult").innerHTML = `<p>Không tìm thấy "${name}"</p>`; return; }
-        let html = `<h3>Điểm của ${name}</h3><ul>`;
-        found.forEach(f => { html += `<li>Điểm: ${f.score}</li>`; });
+        // Tìm theo tên (không phân biệt lớp)
+        const found = resultData.filter(item => item.ten === name);
+        if (found.length === 0) { document.getElementById("searchResult").innerHTML = `<p>Không tìm thấy học sinh "${name}"</p>`; return; }
+        let html = `<h3>Kết quả của "${name}"</h3><ul>`;
+        found.forEach(f => { html += `<li>Lớp ${f.lop}: Điểm ${f.score}</li>`; });
         html += `</ul>`;
         document.getElementById("searchResult").innerHTML = html;
     }
@@ -351,7 +373,7 @@
         if (confirm("Xóa toàn bộ lịch sử?")) { localStorage.removeItem(STORAGE_KEY); renderHistoryTab(); }
     });
 
-    // ----- Xử lý upload file -----
+    // --- Xử lý sự kiện ---
     let resultFileLoaded = false, rosterFileLoaded = false;
 
     document.getElementById("resultFile").addEventListener("change", async (e) => {
@@ -362,7 +384,7 @@
             const rows = await readFile(file);
             resultData = processResultRows(rows);
             resultFileLoaded = true;
-            document.getElementById("status").innerHTML = `✅ Đã đọc Excel: ${resultData.length} học sinh có bài làm.`;
+            document.getElementById("status").innerHTML = `✅ Đã đọc Excel: ${resultData.length} học sinh (bao gồm khách).`;
             if (rosterFileLoaded) generateStats(); else generateStats();
         } catch(err) { alert("Lỗi: "+err.message); }
     });
@@ -389,7 +411,7 @@
             const rows = await readFile(file);
             classRoster = processRosterRows(rows);
             rosterFileLoaded = true;
-            document.getElementById("status").innerHTML = `✅ Đã đọc danh sách lớp: ${classRoster.size} lớp.`;
+            document.getElementById("status").innerHTML = `✅ Đã đọc danh sách lớp: ${classRoster.size} lớp (chỉ dùng cảnh báo bỏ bài).`;
             if (resultFileLoaded) generateStats();
         } catch(err) { alert("Lỗi: "+err.message); }
     });
