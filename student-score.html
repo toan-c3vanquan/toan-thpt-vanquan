@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tra cứu điểm - Học sinh</title>
+    <style>
+        body { font-family: system-ui; max-width: 800px; margin: 0 auto; padding: 20px; background: #f0f2f5; }
+        .card { background: white; border-radius: 16px; padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        input, button { padding: 10px; border-radius: 8px; border: 1px solid #ccc; font-size: 1rem; }
+        button { background: #1e3c72; color: white; cursor: pointer; }
+        .result { margin-top: 20px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background: #e2e8f0; }
+    </style>
+</head>
+<body>
+<div class="card">
+    <h2>🔍 Tra cứu điểm thi</h2>
+    <p>Nhập đúng <strong>Lớp_Tên</strong> (ví dụ: 11A4_Lưu Chí Thức)</p>
+    <input type="text" id="studentName" placeholder="Lớp_Tên" style="width: 70%;">
+    <button id="searchBtn">Tra cứu</button>
+    <div id="result" class="result"></div>
+</div>
+
+<script>
+    // 👉 THAY URL NÀY BẰNG LINK GOOGLE SHEET CỦA THẦY (định dạng CSV)
+    const SHEET_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-.../pub?output=csv";
+
+    async function fetchAndSearch() {
+        const name = document.getElementById("studentName").value.trim();
+        if (!name) return;
+        try {
+            const response = await fetch(SHEET_URL);
+            const csvText = await response.text();
+            const rows = parseCSV(csvText);
+            const myRows = rows.filter(row => row["Tên HS"] === name);
+            if (myRows.length === 0) {
+                document.getElementById("result").innerHTML = `<p>❌ Không tìm thấy điểm cho học sinh "${name}".</p>`;
+                return;
+            }
+            let html = `<h3>📊 Kết quả của ${name}</h3>
+                        <table><thead><tr><th>Thời gian</th><th>Điểm</th><th>Mã đề</th></tr></thead><tbody>`;
+            myRows.forEach(row => {
+                html += `<tr>
+                            <td>${row["Dấu thời gian"] || ""}</td>
+                            <td>${row["Điểm"] || ""}</td>
+                            <td>${row["Dữ liệu"] || ""}</td>
+                         </tr>`;
+            });
+            html += `</tbody></table>`;
+            document.getElementById("result").innerHTML = html;
+        } catch (err) {
+            document.getElementById("result").innerHTML = `<p>⚠️ Lỗi kết nối: ${err.message}</p>`;
+        }
+    }
+
+    function parseCSV(csvText) {
+        const lines = csvText.split(/\r?\n/);
+        if (lines.length < 2) return [];
+        const headers = lines[0].split(',').map(h => h.trim());
+        const rows = [];
+        for (let i = 1; i < lines.length; i++) {
+            if (!lines[i].trim()) continue;
+            const values = lines[i].split(',');
+            let obj = {};
+            headers.forEach((h, idx) => { obj[h] = values[idx] ? values[idx].trim() : ""; });
+            rows.push(obj);
+        }
+        return rows;
+    }
+
+    document.getElementById("searchBtn").onclick = fetchAndSearch;
+</script>
+</body>
+</html>
