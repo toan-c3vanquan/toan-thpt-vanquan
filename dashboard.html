@@ -3,8 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LMS Mini - Dashboard Giáo viên (Nâng cấp)</title>
-    <!-- Thư viện -->
+    <title>LMS Mini - Dashboard Giáo viên (Chuẩn điểm)</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -33,7 +32,7 @@
     </style>
 </head>
 <body>
-<h1>📊 LMS Mini – Dashboard Giáo viên (Nâng cấp)</h1>
+<h1>📊 LMS Mini – Dashboard Giáo viên (Chuẩn điểm)</h1>
 
 <div class="nav-tab">
     <button data-tab="stats" class="active">📈 Thống kê điểm</button>
@@ -109,11 +108,9 @@
     // ---------- Khởi tạo biến toàn cục ----------
     let resultData = [];       // mảng {lop, ten, score}
     let classRoster = new Map(); // Map<lop, Set<ten>>
-    let currentStatsHtml = "";   // lưu html bảng thống kê để xuất PDF
-
+    let currentStatsHtml = "";
     const STORAGE_KEY = "examHistory";
 
-    // ---------- Helper: lấy ngày hôm nay YYYY-MM-DD ----------
     function getToday() {
         const d = new Date();
         return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
@@ -151,15 +148,26 @@
         return rows;
     }
 
-    // Xử lý dữ liệu thô -> resultData (lấy bài làm mới nhất mỗi HS, chỉ lấy có dấu '_')
+    // HÀM XỬ LÝ DỮ LIỆU ĐÃ SỬA - LẤY CHÍNH XÁC CỘT "Điểm"
     function processResultRows(rows) {
-        const headers = rows.length ? Object.keys(rows[0]) : [];
+        if (!rows.length) return [];
+        const headers = Object.keys(rows[0]);
+        // Tìm cột thời gian
         const timestampCol = headers.find(h => h.includes("Dấu thời gian") || h.toLowerCase().includes("timestamp")) || headers[0];
-        const nameCol = headers.find(h => h.includes("Tên HS") || h === "Tên HS");
-        const scoreCol = headers.find(h => h === "Điểm" || h.includes("Điểm"));
-        if (!nameCol) throw new Error("Không tìm thấy cột 'Tên HS'");
-
+        // Tìm cột Tên HS - chính xác
+        const nameCol = headers.find(h => h === "Tên HS" || h.includes("Tên HS"));
+        // Tìm cột Điểm - ưu tiên chính xác "Điểm"
+        let scoreCol = headers.find(h => h === "Điểm");
+        if (!scoreCol) scoreCol = headers.find(h => h.toLowerCase().includes("điểm"));
+        if (!scoreCol) {
+            console.error("Không tìm thấy cột điểm", headers);
+            return [];
+        }
+        console.log("Cột điểm được dùng:", scoreCol);
+        
+        // Lọc học sinh có dấu _
         const valid = rows.filter(row => row[nameCol] && row[nameCol].includes("_"));
+        // Sắp xếp theo thời gian
         valid.sort((a,b) => new Date(a[timestampCol]) - new Date(b[timestampCol]));
         const latestMap = new Map();
         for (const row of valid) {
@@ -168,7 +176,12 @@
             const lop = full.substring(0, underIdx).trim();
             const ten = full.substring(underIdx+1).trim();
             const key = `${lop}||${ten}`;
-            const score = parseFloat(row[scoreCol]) || 0;
+            // Lấy điểm, xử lý số
+            let rawScore = row[scoreCol];
+            // Nếu là string thì thay dấu phẩy bằng chấm
+            if (typeof rawScore === "string") rawScore = rawScore.replace(",", ".");
+            let score = parseFloat(rawScore);
+            if (isNaN(score)) score = 0;
             latestMap.set(key, { lop, ten, score });
         }
         return Array.from(latestMap.values());
@@ -204,7 +217,7 @@
         return "9<10";
     }
 
-    // Tạo bảng thống kê (lưu vào currentStatsHtml)
+    // Tạo bảng thống kê
     function generateStats() {
         if (!resultData.length) {
             document.getElementById("statsTableContainer").innerHTML = '<div class="card">⚠️ Chưa có dữ liệu kết quả.</div>';
@@ -249,43 +262,33 @@
         return html;
     }
 
-    // Lưu lịch sử tuần hiện tại
+    // Lưu lịch sử
     function saveCurrentWeek() {
         const week = document.getElementById("weekInput").value.trim();
-        if (!week) { alert("Vui lòng nhập tuần (VD: 2026-W22)"); return; }
-        if (!resultData.length) { alert("Chưa có dữ liệu kết quả. Hãy tải file hoặc Google Sheet trước."); return; }
+        if (!week) { alert("Vui lòng nhập tuần"); return; }
+        if (!resultData.length) { alert("Chưa có dữ liệu kết quả"); return; }
         let history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-        // Lưu danh sách tên HS đã làm (dạng "Lớp_Tên")
         const studentList = resultData.map(item => `${item.lop}_${item.ten}`);
         history[week] = studentList;
         localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-        alert(`Đã lưu kết quả tuần ${week} với ${studentList.length} học sinh.`);
+        alert(`Đã lưu tuần ${week} với ${studentList.length} HS`);
         renderHistoryTab();
     }
 
-    // Hiển thị lịch sử và cảnh báo bỏ bài
     function renderHistoryTab() {
         const history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
         const weeks = Object.keys(history).sort();
         let html = `<ul>`;
-        for (let w of weeks) {
-            html += `<li><strong>${w}</strong>: ${history[w].length} HS đã làm</li>`;
-        }
+        for (let w of weeks) html += `<li><strong>${w}</strong>: ${history[w].length} HS đã làm</li>`;
         html += `</ul>`;
         document.getElementById("historyList").innerHTML = html || "<p>Chưa có lịch sử.</p>";
-
-        // Phát hiện học sinh vắng 2 tuần liên tiếp (dựa trên danh sách lớp đã upload)
         if (classRoster.size === 0) {
             document.getElementById("riskStudents").innerHTML = "<p>Hãy upload file danh sách lớp để theo dõi bỏ bài.</p>";
             return;
         }
-        const sortedWeeks = weeks.slice(-4); // lấy 4 tuần gần nhất
-        if (sortedWeeks.length < 2) {
-            document.getElementById("riskStudents").innerHTML = "<p>Cần ít nhất 2 tuần dữ liệu để phát hiện.</p>";
-            return;
-        }
-        // Tạo map: tên HS -> mảng các tuần có mặt
-        let attendance = new Map(); // key: "Lớp_Tên", value: Set week
+        const sortedWeeks = weeks.slice(-4);
+        if (sortedWeeks.length < 2) { document.getElementById("riskStudents").innerHTML = "<p>Cần ít nhất 2 tuần.</p>"; return; }
+        let attendance = new Map();
         for (let w of sortedWeeks) {
             history[w].forEach(studentKey => {
                 if (!attendance.has(studentKey)) attendance.set(studentKey, new Set());
@@ -308,45 +311,29 @@
                 }
             }
         }
-        if (riskList.length === 0) {
-            document.getElementById("riskStudents").innerHTML = "<div class='badge'>✅ Không có học sinh bỏ bài 2 tuần liên tiếp.</div>";
-        } else {
-            let riskHtml = `<div class="warning">⚠️ Các học sinh có nguy cơ bỏ bài (vắng 2 tuần gần nhất):<ul>`;
-            riskList.forEach(r => {
-                riskHtml += `<li>${r.lop}_${r.ten} (vắng tuần ${r.lastWeeks.join(", ")})</li>`;
-            });
+        if (riskList.length === 0) document.getElementById("riskStudents").innerHTML = "<div class='badge'>✅ Không có học sinh bỏ bài 2 tuần liên tiếp.</div>";
+        else {
+            let riskHtml = `<div class="warning">⚠️ Các học sinh có nguy cơ bỏ bài:<ul>`;
+            riskList.forEach(r => { riskHtml += `<li>${r.lop}_${r.ten} (vắng tuần ${r.lastWeeks.join(", ")})</li>`; });
             riskHtml += `</ul></div>`;
             document.getElementById("riskStudents").innerHTML = riskHtml;
         }
     }
 
-    // Tra cứu điểm cá nhân từ dữ liệu hiện tại
     function searchStudentScore() {
         const name = document.getElementById("searchName").value.trim();
         if (!name) return;
-        if (!resultData.length) {
-            document.getElementById("searchResult").innerHTML = "<p>Chưa có dữ liệu kết quả. Hãy tải file hoặc Google Sheet trước.</p>";
-            return;
-        }
+        if (!resultData.length) { document.getElementById("searchResult").innerHTML = "<p>Chưa có dữ liệu kết quả.</p>"; return; }
         const found = resultData.filter(item => `${item.lop}_${item.ten}` === name);
-        if (found.length === 0) {
-            document.getElementById("searchResult").innerHTML = `<p>Không tìm thấy học sinh "${name}" trong dữ liệu hiện tại.</p>`;
-            return;
-        }
+        if (found.length === 0) { document.getElementById("searchResult").innerHTML = `<p>Không tìm thấy "${name}"</p>`; return; }
         let html = `<h3>Điểm của ${name}</h3><ul>`;
-        found.forEach(f => {
-            html += `<li>Điểm: ${f.score}</li>`;
-        });
+        found.forEach(f => { html += `<li>Điểm: ${f.score}</li>`; });
         html += `</ul>`;
         document.getElementById("searchResult").innerHTML = html;
     }
 
-    // Xuất PDF
     async function exportToPDF() {
-        if (!currentStatsHtml) {
-            alert("Chưa có bảng thống kê. Hãy nhấn 'Tạo bảng thống kê' trước.");
-            return;
-        }
+        if (!currentStatsHtml) { alert("Chưa có bảng thống kê."); return; }
         const element = document.getElementById("statsCard");
         if (!element) return;
         const canvas = await html2canvas(element, { scale: 2 });
@@ -361,13 +348,10 @@
 
     // Xóa lịch sử
     document.getElementById("clearHistoryBtn")?.addEventListener("click", () => {
-        if (confirm("Xóa toàn bộ lịch sử các tuần?")) {
-            localStorage.removeItem(STORAGE_KEY);
-            renderHistoryTab();
-        }
+        if (confirm("Xóa toàn bộ lịch sử?")) { localStorage.removeItem(STORAGE_KEY); renderHistoryTab(); }
     });
 
-    // ---------- Xử lý upload file ----------
+    // ----- Xử lý upload file -----
     let resultFileLoaded = false, rosterFileLoaded = false;
 
     document.getElementById("resultFile").addEventListener("change", async (e) => {
@@ -379,14 +363,13 @@
             resultData = processResultRows(rows);
             resultFileLoaded = true;
             document.getElementById("status").innerHTML = `✅ Đã đọc Excel: ${resultData.length} học sinh có bài làm.`;
-            if (rosterFileLoaded) generateStats();
-            else generateStats(); // vẫn tạo bảng nếu có kết quả
+            if (rosterFileLoaded) generateStats(); else generateStats();
         } catch(err) { alert("Lỗi: "+err.message); }
     });
 
     document.getElementById("loadGsheetBtn").addEventListener("click", async () => {
         let url = document.getElementById("gsheetUrl").value.trim();
-        if (!url) return alert("Nhập link Google Sheet (CSV)");
+        if (!url) return alert("Nhập link Google Sheet CSV");
         document.getElementById("status").innerHTML = "Đang đọc Google Sheet...";
         try {
             const res = await fetch(url);
@@ -395,9 +378,8 @@
             resultData = processResultRows(rows);
             resultFileLoaded = true;
             document.getElementById("status").innerHTML = `✅ Đã đọc Google Sheet: ${resultData.length} học sinh.`;
-            if (rosterFileLoaded) generateStats();
-            else generateStats();
-        } catch(e) { alert("Lỗi đọc Google Sheet: "+e.message); }
+            if (rosterFileLoaded) generateStats(); else generateStats();
+        } catch(e) { alert("Lỗi: "+e.message); }
     });
 
     document.getElementById("rosterFile").addEventListener("change", async (e) => {
@@ -432,7 +414,6 @@
         });
     });
 
-    // Khởi tạo lịch sử
     renderHistoryTab();
 </script>
 </body>
