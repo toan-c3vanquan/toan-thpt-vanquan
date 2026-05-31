@@ -103,7 +103,7 @@
         const files = Array.from(fileInput.files);
         if(!files.length){ alert("Chọn ít nhất một file HTML."); return; }
         const selectedGrades = Array.from(document.querySelectorAll('#classCheckboxes input:checked')).map(cb=>cb.value);
-        if(!selectedGrades.length){ alert("Chọn ít nhất một danh mục (Toán 10,11,12, Ôn TN, Thi thử)."); return; }
+        if(!selectedGrades.length){ alert("Chọn ít nhất một danh mục (Toán 5,6,7,8,9,10,11,12, Ôn TN, Thi thử)."); return; }
         const week = document.getElementById("week").value.trim();
         const open = document.getElementById("open").value;
         const close = document.getElementById("close").value;
