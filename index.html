@@ -50,11 +50,10 @@
 </div>
 
 <script>
-    // ---------- ĐÃ SỬA: categories với id riêng cho từng lớp ----------
     const categories = [
-        { id: "2", name: "Toán 2" },
-        { id: "3", name: "Toán 3" },
-        { id: "4", name: "Toán 4" },
+        { id: "5", name: "Toán 2" },
+        { id: "5", name: "Toán 3" },
+        { id: "5", name: "Toán 4" },
         { id: "5", name: "Toán 5" },
         { id: "6", name: "Toán 6" },
         { id: "7", name: "Toán 7" },
@@ -69,16 +68,10 @@
     let allExams = [];
     let currentCategory = "11";
 
-    // Hàm lấy/set lượt làm bài (dùng localStorage)
-    function getAttempts(examId) {
-        let attempts = JSON.parse(localStorage.getItem("exam_attempts")) || {};
-        return attempts[examId] || 0;
-    }
-    function increaseAttempt(examId) {
-        let attempts = JSON.parse(localStorage.getItem("exam_attempts")) || {};
-        attempts[examId] = (attempts[examId] || 0) + 1;
-        localStorage.setItem("exam_attempts", JSON.stringify(attempts));
-        return attempts[examId];
+    // Hàm lấy số lượt nộp bài (dùng key "exam_submits")
+    function getSubmits(examId) {
+        let submits = JSON.parse(localStorage.getItem("exam_submits")) || {};
+        return submits[examId] || 0;
     }
 
     function getToday() {
@@ -162,28 +155,19 @@
             if (status === "future") { extraClass = "future-card"; btnText = "⏳ Sắp mở"; btnDisabled = true; }
             if (status === "closed") { extraClass = "closed-card"; btnText = "🔒 Đã đóng"; btnDisabled = true; }
             const btnClass = btnDisabled ? "btn btn-disabled" : "btn";
-            const attempts = getAttempts(ex.id);
-            
-            // Xử lý sự kiện click tăng lượt (chỉ khi đề đang mở)
-            const btnOnClick = (!btnDisabled) ? `onclick="event.preventDefault(); increaseAttemptAndRedirect('${ex.id}', '${ex.html}');"` : 'onclick="return false;"';
-            
+            const submits = getSubmits(ex.id);
+            const btnLink = btnDisabled ? "#" : ex.html;
             return `
                 <div class="de-card ${extraClass}">
                     <h3>📄 ${ex.title}</h3>
                     <div class="de-meta">📅 Mở: ${ex.open} | Đóng: ${ex.close}</div>
                     <div class="de-meta">🏫 Lớp: ${ex.class || "Chung"} | Tuần: ${ex.week || ""}</div>
-                    <div class="luot-lam">📊 Lượt làm: ${attempts}</div>
-                    <a href="${btnDisabled ? "#" : ex.html}" class="${btnClass}" ${btnOnClick}>${btnText}</a>
+                    <div class="luot-lam">📊 Lượt nộp: ${submits}</div>
+                    <a href="${btnLink}" class="${btnClass}">${btnText}</a>
                 </div>
             `;
         }).join("");
     }
-
-    // Hàm toàn cục để tăng lượt và chuyển hướng
-    window.increaseAttemptAndRedirect = function(examId, url) {
-        increaseAttempt(examId);
-        window.location.href = url;
-    };
 
     document.getElementById("menuToggle")?.addEventListener("click", () => {
         const menuList = document.getElementById("mobileMenuList");
