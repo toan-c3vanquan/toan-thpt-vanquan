@@ -979,5 +979,31 @@ function pushToGsheet(result){
 
 function pad(n){return String(Math.floor(n)).padStart(2,'0');}
 </script>
+
+<script>
+(function() {
+    const KEY = "exam_submits";
+    const FILE_NAME = "de_hs_AWTVGG.html";
+    function increaseSubmit() {
+        let submits = JSON.parse(localStorage.getItem(KEY)) || {};
+        submits[FILE_NAME] = (submits[FILE_NAME] || 0) + 1;
+        localStorage.setItem(KEY, JSON.stringify(submits));
+        console.log("Đã tăng lượt nộp cho:", FILE_NAME);
+    }
+    // Gắn sự kiện cho form hoặc nút submit
+    const form = document.querySelector("form");
+    if (form) {
+        form.addEventListener("submit", increaseSubmit);
+    } else {
+        const btns = document.querySelectorAll("button, input[type=submit]");
+        btns.forEach(btn => {
+            if (btn.innerText.includes("Nộp") || btn.innerText.includes("Submit") || btn.value.includes("Nộp")) {
+                btn.addEventListener("click", increaseSubmit);
+            }
+        });
+    }
+})();
+</script>
+        
 </body>
 </html>
