@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LMS Mini - Dashboard Giáo viên (Sao lưu lịch sử)</title>
+    <title>LMS Mini - Dashboard Giáo viên (Tiến độ & Excel)</title>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -38,7 +38,7 @@
     </style>
 </head>
 <body>
-<h1>📊 LMS Mini – Dashboard Giáo viên (Sao lưu lịch sử)</h1>
+<h1>📊 LMS Mini – Dashboard Giáo viên (Tiến độ & Excel)</h1>
 
 <div class="nav-tab">
     <button data-tab="stats" class="active">📈 Thống kê điểm</button>
@@ -82,7 +82,7 @@
     </div>
 </div>
 
-<!-- Tab 3: Tiến độ học sinh -->
+<!-- Tab 3: Tiến độ học sinh (có thêm cột điểm từng tuần) -->
 <div id="tab-progress" class="tab-content">
     <div class="card">
         <h2>📋 Tiến độ làm bài của học sinh</h2>
@@ -92,7 +92,7 @@
                 <option value="all">Tất cả</option><option value="good">Đã làm ≥80%</option><option value="medium">50%-80%</option><option value="bad">&lt;50%</option>
             </select></div>
             <button id="refreshProgressBtn">🔄 Cập nhật</button>
-            <button id="exportProgressCsv">📎 Xuất CSV tiến độ</button>
+            <button id="exportProgressExcel" style="background:#27ae60;">📎 Xuất .xlsx tiến độ</button>
         </div>
         <div id="progressTableContainer"></div>
     </div>
@@ -311,7 +311,7 @@
         let totalAvg = total.count ? (total.sum/total.count).toFixed(2) : "0.00";
         let totalPct = total.count ? ((total.ge5/total.count)*100).toFixed(2) : "0.00";
         html += `<tr class="total-row"><td colspan="2"><strong>Tổng</strong></td><td><strong>${total.count}</strong></td>${total.rangeCounts.map(c=>`<td><strong>${c}</strong></td>`).join('')}<td><strong>${total.ge5}</strong></td><td><strong>${totalPct}%</strong></td><td><strong>${totalAvg}</strong></td></tr>`;
-        html += `</tbody></table><div class="note">* Lớp "Khách" không có dấu _ trong tên.</div></div>`;
+        html += `</tbody></tr><div class="note">* Lớp "Khách" không có dấu _ trong tên.</div></div>`;
         document.getElementById("statsTableContainer").innerHTML = html;
         currentStatsHtml = html;
     }
@@ -407,7 +407,7 @@
         reader.readAsText(file);
     }
 
-    // Các hàm render dropdown, so sánh 2 tuần, tiến độ, xu hướng (giữ nguyên)
+    // Các hàm render dropdown, so sánh 2 tuần (giữ nguyên)
     function renderWeekSelects() {
         const history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
         const weeks = Object.keys(history).sort().reverse();
@@ -452,13 +452,40 @@
         window.week2Name = week2;
     }
 
-    function exportReportCSV() { /* giữ nguyên như cũ */ }
-    function generateParentMessages() { /* giữ nguyên như cũ */ }
+    function exportReportCSV() {
+        if (!window.currentReport || !window.currentReport.length) { alert("Chưa có dữ liệu so sánh"); return; }
+        let csvRows = [["Học sinh", window.week1Name, window.week2Name, "Tiến bộ"]];
+        for (let r of window.currentReport) csvRows.push([r.student, r.score1, r.score2, r.change]);
+        const csvContent = csvRows.map(row => row.join(",")).join("\n");
+        const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = `baocao_${window.week1Name}_${window.week2Name}.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
 
-    // Tiến độ học sinh
+    function generateParentMessages() {
+        if (!window.currentReport || !window.currentReport.length) { alert("Chưa có dữ liệu so sánh"); return; }
+        let messages = "";
+        for (let r of window.currentReport) {
+            let [lop, ten] = r.student.split("_");
+            let changeText = "";
+            if (r.change !== "---") {
+                let num = parseFloat(r.change);
+                changeText = num >= 0 ? `tăng ${r.change} điểm` : `giảm ${Math.abs(num)} điểm`;
+                changeText = `, ${changeText}`;
+            }
+            messages += `Kính gửi PHHS em ${ten} (lớp ${lop}),\nKết quả 2 tuần gần nhất:\n- Tuần ${window.week1Name}: ${r.score1}\n- Tuần ${window.week2Name}: ${r.score2}\nNhận xét: ${r.change !== "---" ? changeText : "chưa đủ dữ liệu để so sánh"}.\nTrân trọng.\n\n`;
+        }
+        document.getElementById("parentMessages").innerHTML = `<textarea rows="15" style="width:100%">${messages}</textarea><p>📋 Sao chép để gửi Zalo/Email.</p>`;
+    }
+
+    // Tiến độ học sinh (có thêm cột điểm từng tuần)
     function renderProgressTab() {
         const history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
-        const weeks = Object.keys(history).sort();
+        const weeks = Object.keys(history).sort();  // danh sách tuần
         if (weeks.length === 0) {
             document.getElementById("progressTableContainer").innerHTML = "<div class='card'>Chưa có lịch sử.</div>";
             return;
@@ -473,15 +500,22 @@
         for (let student of allStudents) {
             let [lop, ten] = student.split("_");
             let doneWeeks = [], missingWeeks = [];
+            let weekScores = {}; // lưu điểm theo tuần
             for (let w of weeks) {
-                if (history[w] && history[w][student] !== undefined) doneWeeks.push(w);
-                else missingWeeks.push(w);
+                if (history[w] && history[w][student] !== undefined) {
+                    doneWeeks.push(w);
+                    weekScores[w] = history[w][student];
+                } else {
+                    missingWeeks.push(w);
+                    weekScores[w] = null;
+                }
             }
             const total = weeks.length;
             const done = doneWeeks.length;
             const percent = total ? (done/total*100).toFixed(1) : 0;
-            studentData.push({ lop, ten, done, total, percent, doneWeeks, missingWeeks });
+            studentData.push({ lop, ten, done, total, percent, doneWeeks, missingWeeks, weekScores });
         }
+        // Lọc theo lớp và trạng thái
         const classFilter = document.getElementById("classFilterProgress").value;
         const statusFilter = document.getElementById("statusFilterProgress").value;
         let filtered = studentData;
@@ -489,19 +523,78 @@
         if (statusFilter === "good") filtered = filtered.filter(s => s.percent >= 80);
         else if (statusFilter === "medium") filtered = filtered.filter(s => s.percent >= 50 && s.percent < 80);
         else if (statusFilter === "bad") filtered = filtered.filter(s => s.percent < 50);
-        let html = `<h3>Tiến độ (tổng ${weeks.length} tuần)</h3><table><thead><tr><th>Lớp</th><th>Học sinh</th><th>Đã làm</th><th>%</th><th>Tiến độ</th><th>Đã làm</th><th>Chưa làm</th></tr></thead><tbody>`;
+        // Tạo bảng HTML với các cột Điểm w...
+        let html = `<h3>Tiến độ (tổng ${weeks.length} tuần)</h3>
+        <table><thead><tr><th>Lớp</th><th>Học sinh</th>`;
+        for (let w of weeks) html += `<th>Điểm ${w}</th>`;
+        html += `<th>Đã làm</th><th>%</th><th>Tiến độ</th><th>Các tuần đã làm</th><th>Các tuần chưa làm</th></tr></thead><tbody>`;
         for (let s of filtered) {
-            html += `<tr><td>${s.lop}</td><td>${s.ten}</td><td>${s.done}/${s.total}</td><td>${s.percent}%</td><td><div class="progress-bar"><div class="progress-fill" style="width:${s.percent}%"></div></div></td><td>${s.doneWeeks.join(", ") || "---"}</td><td style="color:red">${s.missingWeeks.join(", ") || "---"}</td></tr>`;
+            html += `<tr><td>${s.lop}</td><td>${s.ten}</td>`;
+            for (let w of weeks) {
+                let scoreVal = s.weekScores[w];
+                let display = (scoreVal !== null && scoreVal !== undefined) ? scoreVal.toFixed(2) : "---";
+                html += `<td>${display}</td>`;
+            }
+            html += `<td>${s.done}/${s.total}</td><td>${s.percent}%</td>
+                     <td><div class="progress-bar"><div class="progress-fill" style="width:${s.percent}%"></div></div></td>
+                     <td>${s.doneWeeks.join(", ") || "---"}</td>
+                     <td style="color:red">${s.missingWeeks.join(", ") || "---"}</td></tr>`;
         }
         html += `</tbody></table>`;
         document.getElementById("progressTableContainer").innerHTML = html;
+        // Cập nhật dropdown lớp
         const classSelect = document.getElementById("classFilterProgress");
         const uniqueLops = [...new Set(studentData.map(s=>s.lop))].sort();
+        const currentClass = classSelect.value;
         classSelect.innerHTML = '<option value="all">Tất cả lớp</option>';
         uniqueLops.forEach(l => classSelect.appendChild(new Option(l, l)));
+        if (currentClass !== "all" && uniqueLops.includes(currentClass)) classSelect.value = currentClass;
     }
 
-    function exportProgressCsv() { /* giữ nguyên như cũ */ }
+    // Xuất Excel tiến độ (.xlsx)
+    function exportProgressExcel() {
+        const history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        const weeks = Object.keys(history).sort();
+        if (weeks.length === 0) { alert("Chưa có dữ liệu lịch sử"); return; }
+        let allStudentsSet = new Set();
+        for (let w of weeks) for (let s of Object.keys(history[w])) allStudentsSet.add(s);
+        if (classRoster.size) {
+            for (let [lop, students] of classRoster.entries()) for (let ten of students) allStudentsSet.add(`${lop}_${ten}`);
+        }
+        const allStudents = Array.from(allStudentsSet).sort();
+        const dataRows = [];
+        // Header: Lớp, Học sinh, Điểm w1, Điểm w2, ..., Đã làm, Tỉ lệ %, Các tuần đã làm, Các tuần chưa làm
+        let headers = ["Lớp", "Học sinh"];
+        for (let w of weeks) headers.push(`Điểm ${w}`);
+        headers.push("Đã làm", "Tỉ lệ %", "Các tuần đã làm", "Các tuần chưa làm");
+        dataRows.push(headers);
+        for (let student of allStudents) {
+            let [lop, ten] = student.split("_");
+            let row = [lop, ten];
+            let doneCount = 0;
+            let doneWeeksList = [];
+            let missingWeeksList = [];
+            for (let w of weeks) {
+                let score = history[w]?.[student];
+                if (score !== undefined) {
+                    row.push(score);
+                    doneCount++;
+                    doneWeeksList.push(w);
+                } else {
+                    row.push("");
+                    missingWeeksList.push(w);
+                }
+            }
+            const total = weeks.length;
+            const percent = total ? ((doneCount/total)*100).toFixed(1) : 0;
+            row.push(`${doneCount}/${total}`, `${percent}%`, doneWeeksList.join(", "), missingWeeksList.join(", "));
+            dataRows.push(row);
+        }
+        const ws = XLSX.utils.aoa_to_sheet(dataRows);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "TienDoHocSinh");
+        XLSX.writeFile(wb, `tien_do_hoc_sinh_${getToday()}.xlsx`);
+    }
 
     // Xu hướng nhiều tuần
     function renderMultiWeekCheckboxes() {
@@ -560,13 +653,38 @@
             data: { labels, datasets: [{ label: student ? `Điểm ${student}` : `TB lớp ${className}`, data: scores, borderColor: '#1e3c72', tension: 0.1 }] },
             options: { responsive: true, scales: { y: { beginAtZero: true, max: 10 } } }
         });
-        let tableHtml = `<h3>Chi tiết</h3><table><tr><th>Tuần</th><th>Điểm</th></tr>`;
+        let tableHtml = `<h3>Chi tiết</h3><table><thead><tr><th>Tuần</th><th>Điểm</th></tr></thead><tbody>`;
         for (let i=0;i<labels.length;i++) tableHtml += `<tr><td>${labels[i]}</td><td>${scores[i]!==undefined ? scores[i] : "Chưa có"}</td></tr>`;
-        tableHtml += `</table>`;
+        tableHtml += `</tbody></table>`;
         document.getElementById("trendTableContainer").innerHTML = tableHtml;
     }
 
-    function exportMultiWeekCsv() { /* giữ nguyên như cũ */ }
+    function exportMultiWeekCsv() {
+        const history = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+        const checkboxes = document.querySelectorAll("#weeksCheckboxes input");
+        const selectedWeeks = Array.from(checkboxes).filter(cb=>cb.checked).map(cb=>cb.value).sort();
+        if (!selectedWeeks.length) { alert("Chọn ít nhất một tuần"); return; }
+        const allStudents = new Set();
+        for (let w of selectedWeeks) for (let s of Object.keys(history[w] || {})) allStudents.add(s);
+        const studentsList = Array.from(allStudents).sort();
+        const csvRows = [["Học sinh", ...selectedWeeks]];
+        for (let student of studentsList) {
+            let row = [student];
+            for (let w of selectedWeeks) {
+                let score = history[w]?.[student];
+                row.push(score !== undefined ? score : "Chưa làm");
+            }
+            csvRows.push(row);
+        }
+        const csvContent = csvRows.map(row => row.join(",")).join("\n");
+        const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.href = url;
+        link.download = `baocao_nhieu_tuan.csv`;
+        link.click();
+        URL.revokeObjectURL(url);
+    }
 
     // Tra cứu điểm
     function searchStudentScore() {
@@ -646,7 +764,7 @@
     document.getElementById("selectAllWeeks").onclick = () => document.querySelectorAll("#weeksCheckboxes input").forEach(cb => cb.checked = true);
     document.getElementById("deselectAllWeeks").onclick = () => document.querySelectorAll("#weeksCheckboxes input").forEach(cb => cb.checked = false);
     document.getElementById("refreshProgressBtn").onclick = renderProgressTab;
-    document.getElementById("exportProgressCsv").onclick = exportProgressCsv;
+    document.getElementById("exportProgressExcel").onclick = exportProgressExcel;
 
     // Tab switching
     document.querySelectorAll(".nav-tab button").forEach(btn => {
