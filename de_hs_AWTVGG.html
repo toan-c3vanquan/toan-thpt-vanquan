@@ -989,11 +989,12 @@ function pad(n){return String(Math.floor(n)).padStart(2,'0');}
         submits[FILE_NAME] = (submits[FILE_NAME] || 0) + 1;
         localStorage.setItem(KEY, JSON.stringify(submits));
         console.log("Đã tăng lượt nộp cho:", FILE_NAME);
+        alert("Đã ghi nhận lượt nộp bài!");
     }
-    // Gắn sự kiện cho form hoặc nút submit
-    const form = document.querySelector("form");
-    if (form) {
-        form.addEventListener("submit", increaseSubmit);
+    // Tìm nút nộp bài bằng ID hoặc text
+    const submitBtn = document.getElementById("submit-btn");
+    if (submitBtn) {
+        submitBtn.addEventListener("click", increaseSubmit);
     } else {
         const btns = document.querySelectorAll("button, input[type=submit]");
         btns.forEach(btn => {
