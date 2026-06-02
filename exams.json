@@ -28,5 +28,35 @@
     "open": "2026-06-02",
     "close": "2026-06-04",
     "html": "2TT_de_1.html"
+  },
+  {
+    "id": "2TT_de_5_thithu_1780391584375_801",
+    "title": "2TT_de_5",
+    "grade": "thithu",
+    "class": "thithu",
+    "week": "4/6-7/6",
+    "open": "2026-06-04",
+    "close": "2026-06-07",
+    "html": "2TT_de_5.html"
+  },
+  {
+    "id": "2TT_de_6_thithu_1780391584377_197",
+    "title": "2TT_de_6",
+    "grade": "thithu",
+    "class": "thithu",
+    "week": "4/6-7/6",
+    "open": "2026-06-04",
+    "close": "2026-06-07",
+    "html": "2TT_de_6.html"
+  },
+  {
+    "id": "2TT_de_4_thithu_1780391584380_641",
+    "title": "2TT_de_4",
+    "grade": "thithu",
+    "class": "thithu",
+    "week": "4/6-7/6",
+    "open": "2026-06-04",
+    "close": "2026-06-07",
+    "html": "2TT_de_4.html"
   }
 ]
