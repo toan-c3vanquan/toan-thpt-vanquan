@@ -1,52 +1,52 @@
 [
   {
-    "id": "de005_thithu_1780984614409_521",
+    "id": "de005_thithu_1780985126160_604",
     "title": "de005",
     "grade": "thithu",
     "class": "thithu",
-    "week": "",
+    "week": "2",
     "open": "2026-06-09",
-    "close": "2026-06-12",
+    "close": "2026-06-09",
     "html": "de005.html"
   },
   {
-    "id": "de004_thithu_1780984614411_865",
+    "id": "de004_thithu_1780985126162_810",
     "title": "de004",
     "grade": "thithu",
     "class": "thithu",
-    "week": "",
+    "week": "2",
     "open": "2026-06-09",
-    "close": "2026-06-12",
+    "close": "2026-06-09",
     "html": "de004.html"
   },
   {
-    "id": "de003_thithu_1780984614413_91",
+    "id": "de003_thithu_1780985126164_386",
     "title": "de003",
     "grade": "thithu",
     "class": "thithu",
-    "week": "",
+    "week": "2",
     "open": "2026-06-09",
-    "close": "2026-06-12",
+    "close": "2026-06-09",
     "html": "de003.html"
   },
   {
-    "id": "de002_thithu_1780984614415_488",
+    "id": "de002_thithu_1780985126165_6",
     "title": "de002",
     "grade": "thithu",
     "class": "thithu",
-    "week": "",
+    "week": "2",
     "open": "2026-06-09",
-    "close": "2026-06-12",
+    "close": "2026-06-09",
     "html": "de002.html"
   },
   {
-    "id": "de001_thithu_1780984614417_785",
+    "id": "de001_thithu_1780985126167_877",
     "title": "de001",
     "grade": "thithu",
     "class": "thithu",
-    "week": "",
+    "week": "2",
     "open": "2026-06-09",
-    "close": "2026-06-12",
+    "close": "2026-06-09",
     "html": "de001.html"
   }
 ]
