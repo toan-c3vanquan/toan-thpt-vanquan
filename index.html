@@ -62,7 +62,8 @@
         { id: "5", name: "Lớp 5" },{ id: "6", name: "Lớp 6" },{ id: "7", name: "Lớp 7" },
         { id: "8", name: "Lớp 8" },{ id: "9", name: "Lớp 9" },{ id: "10", name: "Lớp 10" },
         { id: "11", name: "Lớp 11" },{ id: "12", name: "Lớp 12" },
-        { id: "ontn", name: "Ôn TN" },{ id: "thithu9", name: "Thi thử lớp 9" },
+        { id: "ontn", name: "Ôn TN" },
+        { id: "thithu9", name: "Thi thử lớp 9" },
         { id: "thithu12", name: "Thi thử lớp 12" }
     ];
     let activeCategories = [];
@@ -70,10 +71,29 @@
     let allDocs = [];
     let currentTab = "de";
 
+    // Hàm loadGradeVisibility có migrate: nếu thiếu key mới thì thêm vào với giá trị true
     function loadGradeVisibility() {
         let vis = localStorage.getItem("gradeVisibility");
-        if(!vis){ let d={}; ALL_CATEGORIES.forEach(c=>d[c.id]=true); return d; }
-        return JSON.parse(vis);
+        let defaultVis = {};
+        ALL_CATEGORIES.forEach(c => defaultVis[c.id] = true);
+        if (!vis) {
+            // chưa có thì tạo mới
+            localStorage.setItem("gradeVisibility", JSON.stringify(defaultVis));
+            return defaultVis;
+        }
+        let parsed = JSON.parse(vis);
+        // migrate: thêm các key mới nếu thiếu
+        let changed = false;
+        ALL_CATEGORIES.forEach(c => {
+            if (parsed[c.id] === undefined) {
+                parsed[c.id] = true;
+                changed = true;
+            }
+        });
+        if (changed) {
+            localStorage.setItem("gradeVisibility", JSON.stringify(parsed));
+        }
+        return parsed;
     }
     function filterCategories() {
         let enabled = loadGradeVisibility();
