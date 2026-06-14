@@ -64,9 +64,8 @@
     let activeCategories = [];
     let allExams = [];
     let allDocs = [];
-    let currentTab = "de"; // 'de' hoặc 'tailieu'
+    let currentTab = "de";
 
-    // ========== LẤY DỮ LIỆU ==========
     function loadGradeVisibility() {
         let vis = localStorage.getItem("gradeVisibility");
         if(!vis){ let d={}; ALL_CATEGORIES.forEach(c=>d[c.id]=true); localStorage.setItem("gradeVisibility",JSON.stringify(d)); return d; }
@@ -109,31 +108,27 @@
         return "closed";
     }
 
-    // ========== RENDER MENU ==========
     function renderMenus() {
         let desktopDiv = document.getElementById("desktopMenu");
         let mobileDiv = document.getElementById("mobileMenuList");
         let desktopHtml = `<a data-tab="de" class="${currentTab==='de'?'active':''}">📝 Đề thi</a>
                            <a data-tab="tailieu" class="${currentTab==='tailieu'?'active':''}">📚 Tài liệu</a>`;
         let mobileHtml = desktopHtml;
-        // Thêm menu các lớp (chỉ hiển thị khi ở tab đề thi)
         activeCategories.forEach(cat => {
             desktopHtml += `<a data-cat="${cat.id}" class="${currentTab==='de' && currentCategory===cat.id ? 'active' : ''}">${cat.name}</a>`;
             mobileHtml += `<a data-cat="${cat.id}" class="${currentTab==='de' && currentCategory===cat.id ? 'active' : ''}">${cat.name}</a>`;
         });
         desktopDiv.innerHTML = desktopHtml;
         mobileDiv.innerHTML = mobileHtml;
-        // Sự kiện chuyển tab
         document.querySelectorAll("[data-tab]").forEach(el => {
             el.onclick = () => {
                 currentTab = el.getAttribute("data-tab");
                 if(currentTab === "de") renderDeThi();
                 else renderTaiLieu();
-                renderMenus(); // refresh lại menu active
+                renderMenus();
                 if(window.innerWidth<=768) document.getElementById("mobileMenuList").style.display = "none";
             };
         });
-        // Sự kiện chọn lớp
         document.querySelectorAll("[data-cat]").forEach(el => {
             el.onclick = () => {
                 if(currentTab !== "de") return;
@@ -147,7 +142,6 @@
 
     let currentCategory = "11";
 
-    // ========== RENDER ĐỀ THI ==========
     function renderDeThi() {
         let container = document.getElementById("content");
         let today = getToday();
@@ -191,14 +185,13 @@
         }).join("");
     }
 
-    // ========== RENDER TÀI LIỆU (mobile-friendly: không iframe) ==========
+    // ========== RENDER TÀI LIỆU - CÁCH XEM MỚI: KHÔNG POPUP, CHUYỂN TRANG TRỰC TIẾP ==========
     function renderTaiLieu() {
         let container = document.getElementById("content");
         if(!allDocs.length) {
             container.innerHTML = `<div style="text-align:center; padding:40px;">📭 Chưa có tài liệu nào.</div>`;
             return;
         }
-        // Lọc theo lớp được bật
         let enabled = loadGradeVisibility();
         let docs = allDocs.filter(doc => {
             if(!doc.grade) return true;
@@ -212,8 +205,8 @@
         docs.forEach(doc => {
             let fileExt = doc.type || (doc.file.split('.').pop().toLowerCase());
             let isPdf = fileExt === 'pdf';
-            // Nút xem: mở file trực tiếp trong tab mới (trình duyệt xử lý)
-            let viewBtn = isPdf ? `<a href="${doc.file}" target="_blank" class="btn btn-view">📖 Xem</a>` : '';
+            // XEM: dùng thẻ a bình thường, không target="_blank" -> trình duyệt tự xử lý (hiển thị hoặc tải)
+            let viewLink = isPdf ? `<a href="${doc.file}" class="btn btn-view">📖 Xem</a>` : '';
             html += `
                 <div class="doc-card">
                     <h3>📘 ${escapeHtml(doc.title)}</h3>
@@ -221,7 +214,7 @@
                     <div class="de-meta">📁 ${doc.file} ${doc.grade ? `| Lớp ${doc.grade}` : ''}</div>
                     <div class="doc-actions">
                         <a href="${doc.file}" download class="btn btn-download">⬇️ Tải về</a>
-                        ${viewBtn}
+                        ${viewLink}
                     </div>
                 </div>
             `;
@@ -230,7 +223,6 @@
         container.innerHTML = html;
     }
 
-    // Hàm phòng chống XSS (dù dữ liệu an toàn)
     function escapeHtml(str) {
         if(!str) return '';
         return str.replace(/[&<>]/g, function(m) {
@@ -238,12 +230,9 @@
             if(m === '<') return '&lt;';
             if(m === '>') return '&gt;';
             return m;
-        }).replace(/[\uD800-\uDBFF][\uDC00-\uDFFF]/g, function(c) {
-            return c;
         });
     }
 
-    // ========== KHỞI TẠO ==========
     async function init() {
         filterCategories();
         await Promise.all([loadExams(), loadDocs()]);
