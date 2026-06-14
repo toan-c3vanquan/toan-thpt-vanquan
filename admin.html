@@ -2,8 +2,9 @@
 <html lang="vi">
 <head>
     <meta charset="UTF-8">
-    <title>Quản trị - Đề thi & Tài liệu</title>
+    <title>Quản trị - Đề thi & Tài liệu (theo lớp + môn)</title>
     <style>
+        * { box-sizing: border-box; }
         body { font-family: system-ui; max-width: 1200px; margin: 0 auto; padding: 20px; background: #f5f7fb; }
         .card { background: white; border-radius: 16px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         label { font-weight: bold; display: block; margin-top: 12px; }
@@ -11,7 +12,7 @@
         .checkbox-group { display: flex; gap: 15px; flex-wrap: wrap; margin-top: 8px; }
         .checkbox-group label { display: inline-flex; align-items: center; gap: 5px; font-weight: normal; margin-top: 0; }
         button { background: #1e3c72; color: white; padding: 10px 20px; border: none; border-radius: 8px; margin-top: 20px; cursor: pointer; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; overflow-x: auto; display: block; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
         th { background: #e2e8f0; }
         .warning { background: #fff3cd; padding: 12px; border-radius: 8px; margin-top: 15px; }
@@ -21,7 +22,7 @@
     </style>
 </head>
 <body>
-<h1>🛠 Quản trị hệ thống (Đề thi + Tài liệu)</h1>
+<h1>🛠 Quản trị hệ thống (Đề thi + Tài liệu theo Lớp/Môn)</h1>
 
 <!-- ========== CẤU HÌNH HIỂN THỊ LỚP ========== -->
 <div class="card">
@@ -52,9 +53,9 @@
     <button id="addMultipleBtn">📦 Tạo ZIP (exams.json + HTML đã chèn script)</button>
 </div>
 
-<!-- ========== QUẢN LÝ TÀI LIỆU (PDF/DOCX) ========== -->
+<!-- ========== QUẢN LÝ TÀI LIỆU (PDF/DOCX) THEO LỚP + MÔN ========== -->
 <div class="card">
-    <h2>📚 Tài liệu học tập (PDF, DOCX)</h2>
+    <h2>📚 Tài liệu học tập (PDF, DOCX) – Có lớp & môn</h2>
     <div id="docList">Đang tải...</div>
     <button id="refreshDocsBtn" style="background:#27ae60;">🔄 Làm mới</button>
     <button id="downloadDocsBtn" style="background:#2980b9;">💾 Tải docs.json</button>
@@ -62,8 +63,25 @@
     <h3>➕ Thêm tài liệu mới</h3>
     <label>Tiêu đề *</label><input type="text" id="docTitle" placeholder="VD: Đề cương giữa kỳ">
     <label>Mô tả (ngắn)</label><textarea id="docDesc" rows="2" placeholder="Nội dung tóm tắt..."></textarea>
-    <label>Lớp (để lọc, có thể để trống)</label>
-    <select id="docGrade"><option value="">Tất cả lớp</option></select>
+    
+    <label>Lớp *</label>
+    <select id="docGrade"></select>
+    
+    <label>Môn *</label>
+    <select id="docSubject">
+        <option value="Toán">Toán</option>
+        <option value="Vật lý">Vật lý</option>
+        <option value="Hóa học">Hóa học</option>
+        <option value="Ngữ văn">Ngữ văn</option>
+        <option value="Tiếng Anh">Tiếng Anh</option>
+        <option value="Lịch sử">Lịch sử</option>
+        <option value="Địa lý">Địa lý</option>
+        <option value="GDCD">GDCD</option>
+        <option value="Sinh học">Sinh học</option>
+        <option value="Tin học">Tin học</option>
+        <option value="Công nghệ">Công nghệ</option>
+    </select>
+    
     <label>Chọn file (.pdf, .docx)</label>
     <input type="file" id="docFiles" accept=".pdf,.docx" multiple>
     <div id="selectedDocFilesList" class="file-list"></div>
@@ -77,7 +95,6 @@
     let currentExams = [];
     let currentDocs = [];
 
-    // Danh sách lớp
     const ALL_GRADES = [
         { id: "2", name: "Toán 2" },{ id: "3", name: "Toán 3" },{ id: "4", name: "Toán 4" },
         { id: "5", name: "Toán 5" },{ id: "6", name: "Toán 6" },{ id: "7", name: "Toán 7" },
@@ -136,9 +153,9 @@
     function renderDocList(){
         let container=document.getElementById("docList");
         if(!currentDocs.length){ container.innerHTML="<p>Chưa có tài liệu.</p>"; return; }
-        let html=`<table><thead><tr><th>Tiêu đề</th><th>Mô tả</th><th>Lớp</th><th>File</th><th>Xóa</th></tr></thead><tbody>`;
+        let html=`<table><thead><tr><th>Tiêu đề</th><th>Mô tả</th><th>Lớp</th><th>Môn</th><th>File</th><th>Xóa</th></tr></thead><tbody>`;
         currentDocs.forEach((doc,idx)=>{
-            html+=`<tr><td>${doc.title}</td><td>${doc.description||''}</td><td>${doc.grade||'Tất cả'}</td><td>${doc.file}</td><td><button class="delDocBtn" data-idx="${idx}">🗑️</button></td></tr>`;
+            html+=`<tr><td>${doc.title}</td><td>${doc.description||''}</td><td>${doc.grade||'Tất cả'}</td><td>${doc.subject||''}</td><td>${doc.file}</td><td><button class="delDocBtn" data-idx="${idx}">🗑️</button></td></tr>`;
         });
         html+=`</tbody></table><p class="success">Tổng: ${currentDocs.length} tài liệu</p>`;
         container.innerHTML=html;
@@ -188,10 +205,10 @@
         document.getElementById("htmlFiles").value=""; document.getElementById("selectedFilesList").innerHTML="";
     };
 
-    // ========== THÊM TÀI LIỆU ==========
+    // ========== THÊM TÀI LIỆU (CÓ LỚP VÀ MÔN) ==========
     function updateDocGradeSelect(){
         let select=document.getElementById("docGrade");
-        select.innerHTML='<option value="">Tất cả lớp</option>';
+        select.innerHTML='<option value="">-- Chọn lớp --</option>';
         ALL_GRADES.forEach(g=>{ select.innerHTML+=`<option value="${g.id}">${g.name}</option>`; });
     }
     document.getElementById("addDocsBtn").onclick=async()=>{
@@ -201,6 +218,9 @@
         if(!title){ alert("Nhập tiêu đề tài liệu"); return; }
         let desc=document.getElementById("docDesc").value.trim();
         let grade=document.getElementById("docGrade").value;
+        let subject=document.getElementById("docSubject").value;
+        if(!grade){ alert("Chọn lớp cho tài liệu"); return; }
+        if(!subject){ alert("Chọn môn cho tài liệu"); return; }
         let zip=new JSZip();
         let newDocs=[];
         for(let file of files){
@@ -215,7 +235,8 @@
                 description:desc,
                 file:file.name,
                 type:ext,
-                grade:grade || ""
+                grade:grade,
+                subject:subject
             });
         }
         if(newDocs.length===0){ alert("Không có file hợp lệ"); return; }

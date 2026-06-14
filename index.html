@@ -30,7 +30,11 @@
         .future-card { border-left-color: #f39c12; }
         .luot-lam { font-size: 0.8rem; color: #27ae60; margin-top: 8px; font-weight: bold; }
         .no-time-badge { display: inline-block; background: #f39c12; color: #1e3c72; border-radius: 20px; font-size: 0.7rem; padding: 2px 8px; margin-left: 8px; vertical-align: middle; }
-        .doc-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+        .filters { display: flex; gap: 15px; margin-bottom: 20px; flex-wrap: wrap; align-items: flex-end; background: white; padding: 15px; border-radius: 16px; }
+        .filters .filter-group { flex: 1; min-width: 150px; }
+        .filters label { font-weight: bold; display: block; margin-bottom: 5px; }
+        .filters select, .filters button { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #ccc; }
+        .filters button { background: #1e3c72; color: white; border: none; cursor: pointer; margin-top: 0; }
         @media (max-width: 768px) {
             .menu-desktop { display: none; }
             .menu-mobile { display: block; }
@@ -182,11 +186,10 @@
         }).join("");
     }
 
-    // Xem PDF bằng Google Docs Viewer (mở tab mới, hoạt động trên mọi điện thoại)
+    // Xem PDF bằng Google Docs Viewer
     function viewPdfWithGoogleDocs(fileUrl) {
         let absoluteUrl = fileUrl;
         if (!fileUrl.startsWith('http')) {
-            // Nếu đường dẫn tương đối, chuyển thành tuyệt đối dựa trên URL hiện tại
             let base = window.location.href.substring(0, window.location.href.lastIndexOf('/') + 1);
             absoluteUrl = base + fileUrl;
         }
@@ -194,32 +197,45 @@
         window.open(viewerUrl, '_blank');
     }
 
+    // ========== TÀI LIỆU CÓ LỌC LỚP + MÔN ==========
+    let currentDocGrade = "11";      // lớp đang chọn để lọc tài liệu
+    let currentDocSubject = "Toán";  // môn đang chọn
+
     function renderTaiLieu() {
         let container = document.getElementById("content");
         if(!allDocs.length) {
             container.innerHTML = `<div style="text-align:center; padding:40px;">📭 Chưa có tài liệu nào.</div>`;
             return;
         }
-        let enabled = loadGradeVisibility();
+        // Lọc theo lớp được bật (cấu hình hiển thị)
+        let enabledGrades = loadGradeVisibility();
         let docs = allDocs.filter(doc => {
-            if(!doc.grade) return true;
-            return enabled[doc.grade] === true;
+            if(!doc.grade) return false;
+            return enabledGrades[doc.grade] === true;
         });
+        // Tiếp tục lọc theo lớp và môn đã chọn
+        docs = docs.filter(doc => doc.grade === currentDocGrade && doc.subject === currentDocSubject);
+        
         if(docs.length===0){
-            container.innerHTML = `<div style="text-align:center; padding:40px;">📭 Không có tài liệu phù hợp.</div>`;
+            container.innerHTML = `<div style="text-align:center; padding:40px;">📭 Không có tài liệu cho lớp ${currentDocGrade} môn ${currentDocSubject}.</div>`;
             return;
         }
+        
         let html = `<div class="category-title">📚 Tài liệu học tập</div>
+                    <div class="filters">
+                        <div class="filter-group"><label>📖 Lớp</label><select id="filterGrade"></select></div>
+                        <div class="filter-group"><label>📚 Môn</label><select id="filterSubject"></select></div>
+                        <div class="filter-group"><button id="applyDocFilterBtn">🔍 Lọc tài liệu</button></div>
+                    </div>
                     <div class="doc-list">`;
         docs.forEach(doc => {
-            let fileExt = doc.type || (doc.file.split('.').pop().toLowerCase());
-            let isPdf = fileExt === 'pdf';
+            let isPdf = (doc.type === 'pdf') || doc.file.toLowerCase().endsWith('.pdf');
             let viewBtn = isPdf ? `<button class="btn btn-view" onclick="viewPdfWithGoogleDocs('${doc.file}')">📖 Xem</button>` : '';
             html += `
                 <div class="doc-card">
                     <h3>📘 ${escapeHtml(doc.title)}</h3>
                     <p style="color:#555; margin:8px 0;">${escapeHtml(doc.description || '')}</p>
-                    <div class="de-meta">📁 ${doc.file} ${doc.grade ? `| Lớp ${doc.grade}` : ''}</div>
+                    <div class="de-meta">📁 ${doc.file} | ${doc.grade} | ${doc.subject}</div>
                     <div class="doc-actions">
                         <a href="${doc.file}" download class="btn btn-download">⬇️ Tải về</a>
                         ${viewBtn}
@@ -229,6 +245,38 @@
         });
         html += `</div>`;
         container.innerHTML = html;
+        
+        // Đổ dropdown lớp (chỉ hiển thị các lớp được bật)
+        let gradeSelect = document.getElementById("filterGrade");
+        if(gradeSelect){
+            gradeSelect.innerHTML = "";
+            let enabledList = Object.keys(enabledGrades).filter(g => enabledGrades[g] === true);
+            enabledList.forEach(g => {
+                let gradeName = ALL_CATEGORIES.find(c=>c.id===g)?.name || g;
+                let selected = (g === currentDocGrade) ? "selected" : "";
+                gradeSelect.innerHTML += `<option value="${g}" ${selected}>${gradeName}</option>`;
+            });
+        }
+        // Đổ dropdown môn (các môn có trong tài liệu hoặc cố định)
+        let subjectSelect = document.getElementById("filterSubject");
+        if(subjectSelect){
+            let subjects = [...new Set(allDocs.filter(d=>enabledGrades[d.grade]).map(d=>d.subject))];
+            if(subjects.length===0) subjects = ["Toán","Vật lý","Hóa học","Ngữ văn","Tiếng Anh","Lịch sử","Địa lý","GDCD","Sinh học","Tin học","Công nghệ"];
+            subjectSelect.innerHTML = "";
+            subjects.forEach(sub => {
+                let selected = (sub === currentDocSubject) ? "selected" : "";
+                subjectSelect.innerHTML += `<option value="${sub}" ${selected}>${sub}</option>`;
+            });
+        }
+        // Gắn sự kiện lọc
+        let applyBtn = document.getElementById("applyDocFilterBtn");
+        if(applyBtn){
+            applyBtn.onclick = () => {
+                currentDocGrade = document.getElementById("filterGrade").value;
+                currentDocSubject = document.getElementById("filterSubject").value;
+                renderTaiLieu();
+            };
+        }
     }
 
     function escapeHtml(str) {
