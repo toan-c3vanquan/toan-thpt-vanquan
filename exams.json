@@ -747,7 +747,7 @@
     "type": "html"
   },
   {
-    "id": "DE12TT_003_thithu12_1781692813247_430",
+    "id": "DE12TT_003_thithu12_1781693055246_529",
     "title": "DE12TT_003",
     "subject": "Toán",
     "grade": "thithu12",
@@ -756,7 +756,7 @@
     "close": "",
     "html": "thithu12/DE12TT_003.html",
     "timeLimited": false,
-    "allowGuest": true,
+    "allowGuest": false,
     "type": "html"
   }
 ]
