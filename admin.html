@@ -278,6 +278,14 @@
                 <input type="checkbox" id="timeLimitedCheckbox" checked> ⏱️ Có giới hạn thời gian
             </label>
         </div>
+        <div id="allowGuestArea" class="form-group">
+            <label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+                <input type="checkbox" id="allowGuestCheckbox" checked> 👤 Cho phép "Khách" vào làm bài (không cần chọn tên trong danh sách lớp)
+            </label>
+            <div class="warning-box" style="margin-top:6px;">
+                💡 Nếu tắt, học sinh phải chọn đúng tên trong danh sách lớp (STU_LIST trong file đề) mới làm bài được — tab "Khách" sẽ ẩn hoàn toàn.
+            </div>
+        </div>
         <div id="dateRangeArea" class="form-row">
             <div class="form-group"><label>📅 Ngày mở</label><input type="date" id="open"></div>
             <div class="form-group"><label>📅 Ngày đóng</label><input type="date" id="close"></div>
@@ -891,6 +899,7 @@ document.getElementById("examType").onchange=function(){
     let t=this.value;
     document.getElementById("htmlUploadArea").style.display=t==="html"?"block":"none";
     document.getElementById("quizBuilderArea").style.display=t==="quiz"?"block":"none";
+    document.getElementById("allowGuestArea").style.display=t==="html"?"block":"none";
     if(t==="quiz"&&quizQuestions.length===0)document.getElementById("addQuestionBtn").click();
 };
 document.getElementById("timeLimitedCheckbox").onchange=function(){
@@ -946,6 +955,7 @@ document.getElementById("addMultipleBtn").onclick=async()=>{
     let subject=document.getElementById("examSubject").value;
     let week=document.getElementById("week").value.trim();
     let timeLimited=document.getElementById("timeLimitedCheckbox").checked;
+    let allowGuest=document.getElementById("allowGuestCheckbox").checked;
     let open=timeLimited?document.getElementById("open").value:"";
     let close=timeLimited?document.getElementById("close").value:"";
     if(timeLimited&&(!open||!close)){alert("Nhập ngày mở và đóng");return;}
@@ -957,8 +967,16 @@ document.getElementById("addMultipleBtn").onclick=async()=>{
         if(!files.length){alert("Chọn file HTML");return;}
         let grades=Array.from(document.querySelectorAll('#classCheckboxes input:checked')).map(cb=>cb.value);
         if(!grades.length){alert("Chọn ít nhất một lớp");return;}
+        let guestFlagMissingFiles=[];
         for(let file of files){
             let content=await file.text();
+            // ── Tiêm cờ ALLOW_GUEST (cho phép/không cho phép "Khách" vào làm bài) ──
+            let guestRegex=/var\s+ALLOW_GUEST\s*=\s*(true|false)\s*;/;
+            if(guestRegex.test(content)){
+                content=content.replace(guestRegex,`var ALLOW_GUEST = ${allowGuest};`);
+            } else {
+                guestFlagMissingFiles.push(file.name); // file này không có biến ALLOW_GUEST, không tiêm được
+            }
             let script=`<script>(function(){const KEY="exam_submits";const FILE_NAME="${file.name.replace(/"/g,'\\"')}";function inc(){let s=JSON.parse(localStorage.getItem(KEY))||{};s[FILE_NAME]=(s[FILE_NAME]||0)+1;localStorage.setItem(KEY,JSON.stringify(s));alert("Đã ghi nhận lượt nộp bài!");}let btn=document.getElementById("submit-btn");if(btn)btn.addEventListener("click",inc);else document.querySelectorAll("button,input[type=submit]").forEach(b=>{if(b.innerText.includes("Nộp")||b.value.includes("Nộp"))b.addEventListener("click",inc);});})();<\/script>`;
             let injected=content.includes("</body>")?content.replace("</body>",script+"\n</body>"):content+script;
             let title=file.name.replace(/\.html$/i,""),idPrefix=title.replace(/[^a-zA-Z0-9]/g,"_");
@@ -969,8 +987,11 @@ document.getElementById("addMultipleBtn").onclick=async()=>{
                 let pathInZip=`${folder}/${file.name}`;
                 zip.file(pathInZip,injected);
                 let id=`${idPrefix}_${grade}_${Date.now()}_${Math.floor(Math.random()*1000)}`;
-                newExams.push({id,title,subject,grade,week,open,close,html:pathInZip,timeLimited,type:"html"});
+                newExams.push({id,title,subject,grade,week,open,close,html:pathInZip,timeLimited,allowGuest,type:"html"});
             }
+        }
+        if(guestFlagMissingFiles.length){
+            alert(`⚠️ Lưu ý: ${guestFlagMissingFiles.length} file không có biến "ALLOW_GUEST" trong code (VD: ${guestFlagMissingFiles[0]}), nên không tự bật/tắt được tab Khách cho file này. Tùy chọn "Cho phép khách" chỉ áp dụng được với file có sẵn dòng "var ALLOW_GUEST = true/false;".`);
         }
     } else {
         if(!quizQuestions.length){alert("Chưa có câu hỏi");return;}
