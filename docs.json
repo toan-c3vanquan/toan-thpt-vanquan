@@ -367,5 +367,131 @@
     "mediaType": "link",
     "grade": "12",
     "subject": "Toán"
+  },
+  {
+    "id": "doc_1781660983624_ga05ts",
+    "title": "Bài 6: Vectơ trong không gian",
+    "description": "",
+    "file": "https://www.youtube.com/watch?v=Lr5Nkw8npLY",
+    "mediaType": "link",
+    "grade": "12",
+    "subject": "Toán"
+  },
+  {
+    "id": "doc_1781661028512_39t72c",
+    "title": "Bài 7: Hệ trục tọa độ trong không gian",
+    "description": "sưu tầm bởi txh",
+    "file": "https://www.youtube.com/watch?v=KkjtCbiqAk4",
+    "mediaType": "link",
+    "grade": "12",
+    "subject": "Toán"
+  },
+  {
+    "id": "doc_1781661084702_v69l04",
+    "title": "Bài 8: Biểu thức toạ độ của các phép toán vectơ",
+    "description": "sưu tầm bởi txh",
+    "file": "https://www.youtube.com/watch?v=JYjRUo74Q7k",
+    "mediaType": "link",
+    "grade": "12",
+    "subject": "Toán"
+  },
+  {
+    "id": "doc_1781661125567_w9rsf5",
+    "title": "Bài 9: Khoảng biến thiên và khoảng tứ phân vị",
+    "description": "sưu tầm bởi txh",
+    "file": "https://www.youtube.com/watch?v=hTt5uSwZPyk",
+    "mediaType": "link",
+    "grade": "12",
+    "subject": "Toán"
+  },
+  {
+    "id": "doc_1781661161176_qi56n4",
+    "title": "Bài 10: Phương sai và độ lệch chuẩn",
+    "description": "sưu tầm bởi txh",
+    "file": "https://www.youtube.com/watch?v=lmqQKOeLASw",
+    "mediaType": "link",
+    "grade": "12",
+    "subject": "Toán"
+  },
+  {
+    "id": "doc_1781661241063_a1ajxb",
+    "title": "Bài 11: Nguyên hàm",
+    "description": "sưu tầm bởi txh",
+    "file": "https://www.youtube.com/watch?v=lpy2wxi1STY",
+    "mediaType": "link",
+    "grade": "12",
+    "subject": "Toán"
+  },
+  {
+    "id": "doc_1781661278144_dpznsr",
+    "title": "Bài 12: Tích phân",
+    "description": "sưu tầm bởi txh",
+    "file": "https://www.youtube.com/watch?v=VRcmLOWbESw",
+    "mediaType": "link",
+    "grade": "12",
+    "subject": "Toán"
+  },
+  {
+    "id": "doc_1781661323927_pvo6rv",
+    "title": "Bài 13: Ứng dụng hình học của tích phân",
+    "description": "sưu tầm bởi txh",
+    "file": "https://www.youtube.com/watch?v=5qQ8zOFb-ng",
+    "mediaType": "link",
+    "grade": "12",
+    "subject": "Toán"
+  },
+  {
+    "id": "doc_1781661386096_xll7rc",
+    "title": "Bài 14: Phương trình mặt phẳng",
+    "description": "sưu tầm bởi txh",
+    "file": "https://www.youtube.com/watch?v=INCX5vo_Is0",
+    "mediaType": "link",
+    "grade": "12",
+    "subject": "Toán"
+  },
+  {
+    "id": "doc_1781661421343_d7amiq",
+    "title": "Bài 15: Phương trình đường thẳng trong không gian",
+    "description": "sưu tầm bởi txh",
+    "file": "https://www.youtube.com/watch?v=Jw6uQqi4Eks",
+    "mediaType": "link",
+    "grade": "12",
+    "subject": "Toán"
+  },
+  {
+    "id": "doc_1781661458999_pupwi2",
+    "title": "Bài 16: Công thức tính góc trong không gian",
+    "description": "sưu tầm bởi txh",
+    "file": "https://www.youtube.com/watch?v=GtI09UjLhhw",
+    "mediaType": "link",
+    "grade": "12",
+    "subject": "Toán"
+  },
+  {
+    "id": "doc_1781661504647_ir2wbp",
+    "title": "Bài 17: Phương trình mặt cầu",
+    "description": "sưu tầm bởi txh",
+    "file": "https://www.youtube.com/watch?v=gv-8mE8s5ss",
+    "mediaType": "link",
+    "grade": "12",
+    "subject": "Toán"
+  },
+  {
+    "id": "doc_1781661544999_c3n2w8",
+    "title": "Bài 18: Xác suất có điều kiện",
+    "description": "sưu tầm bởi txh",
+    "file": "https://www.youtube.com/watch?v=wabUhaxcrUc",
+    "mediaType": "link",
+    "grade": "12",
+    "subject": "Toán"
+  },
+  {
+    "id": "doc_1781661578551_drrbz9",
+    "title": "Bài 19: Công thức xác suất toàn phần và công thức Bayes",
+    "description": "sưu tầm bởi txh",
+    "file": "https://www.youtube.com/watch?v=_aTZ6QynR2U",
+    "mediaType": "link",
+    "grade": "12",
+    "subject": "Toán"
   }
 ]
