@@ -11,7 +11,8 @@
     "html": "toan12/DE12BAI1_003.html",
     "timeLimited": false,
     "type": "html",
-    "_idx": 7
+    "_idx": 7,
+    "minTimePct": 10
   },
   {
     "id": "DE12BAI1_002_12_1781519540976_286",
@@ -25,7 +26,8 @@
     "html": "toan12/DE12BAI1_002.html",
     "timeLimited": false,
     "type": "html",
-    "_idx": 8
+    "_idx": 8,
+    "minTimePct": 20
   },
   {
     "id": "DE12BAI1_001_12_1781519540978_843",
