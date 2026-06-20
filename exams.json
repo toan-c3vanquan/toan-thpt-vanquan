@@ -2215,50 +2215,5 @@
     "rosterClasses": [],
     "minTimePct": 0,
     "type": "html"
-  },
-  {
-    "id": "DE11GHK1_003_11_1781999361013_881",
-    "title": "DE11GHK1_003",
-    "subject": "Toán",
-    "grade": "11",
-    "week": "",
-    "open": "",
-    "close": "",
-    "html": "toan11/DE11GHK1_003.html",
-    "timeLimited": false,
-    "allowGuest": true,
-    "rosterClasses": [],
-    "minTimePct": 0,
-    "type": "html"
-  },
-  {
-    "id": "DE11GHK1_002_11_1781999361015_898",
-    "title": "DE11GHK1_002",
-    "subject": "Toán",
-    "grade": "11",
-    "week": "",
-    "open": "",
-    "close": "",
-    "html": "toan11/DE11GHK1_002.html",
-    "timeLimited": false,
-    "allowGuest": true,
-    "rosterClasses": [],
-    "minTimePct": 0,
-    "type": "html"
-  },
-  {
-    "id": "DE11GHK1_001_11_1781999361017_389",
-    "title": "DE11GHK1_001",
-    "subject": "Toán",
-    "grade": "11",
-    "week": "",
-    "open": "",
-    "close": "",
-    "html": "toan11/DE11GHK1_001.html",
-    "timeLimited": false,
-    "allowGuest": true,
-    "rosterClasses": [],
-    "minTimePct": 0,
-    "type": "html"
   }
 ]
