@@ -152,7 +152,18 @@ let countdownTimer=null;
 /* ── UTILS ── */
 function escapeHtml(s){if(!s)return'';return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
 function highlight(s,q){if(!q)return escapeHtml(s);let re=new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi');return escapeHtml(s).replace(re,m=>`<span class="hl">${m}</span>`);}
-function getGroup(ex){if(ex.group)return ex.group;let m=(ex.title||ex.html||'').match(/BAI(\d+)/i);if(m)return'Bài '+parseInt(m[1]);m=(ex.title||'').match(/BÀI\s*(\d+)/i);if(m)return'Bài '+parseInt(m[1]);return'Chung';}
+function getGroup(ex){
+    if(ex.group)return ex.group;
+    let src=(ex.title||ex.html||'');
+    let m;
+    // Ưu tiên kiểm tra GHK trước HK (vì "GHK1" chứa chuỗi con "HK1")
+    m=src.match(/BAI\s*(\d+)/i);          if(m) return 'Bài '+parseInt(m[1]);
+    m=src.match(/BÀI\s*(\d+)/i);          if(m) return 'Bài '+parseInt(m[1]);
+    m=src.match(/GHK\s*(\d+)/i);          if(m) return 'Đề GHK'+parseInt(m[1]);
+    m=src.match(/HK\s*(\d+)/i);           if(m) return 'Đề HK'+parseInt(m[1]);
+    m=src.match(/OTN/i);                  if(m) return 'Đề OTN';
+    return'Chung';
+}
 
 /* ── NGÀY / GIỜ ── */
 function getToday(){let d=new Date();return`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;}
@@ -278,7 +289,18 @@ function renderDeThi(){
 
     let groups={};
     filtered.forEach(ex=>{let g=getGroup(ex),st=getExamStatus(ex,today);if(!groups[g])groups[g]={open:[],future:[],closed:[]};groups[g][st].push(ex);});
-    let groupKeys=Object.keys(groups).sort((a,b)=>{let na=parseInt(a.replace(/\D/g,'')||'9999'),nb=parseInt(b.replace(/\D/g,'')||'9999');return na-nb||a.localeCompare(b);});
+    let groupKeys=Object.keys(groups).sort((a,b)=>{
+        function rank(key){
+            let m;
+            if(m=key.match(/^Bài (\d+)$/))      return [0, parseInt(m[1])];
+            if(m=key.match(/^Đề GHK(\d+)$/))     return [1, parseInt(m[1])];
+            if(m=key.match(/^Đề HK(\d+)$/))      return [2, parseInt(m[1])];
+            if(key==='Đề OTN')                   return [3, 0];
+            return [4, 0]; // 'Chung' và các nhóm khác xếp cuối
+        }
+        let [ca,na]=rank(a),[cb,nb]=rank(b);
+        return ca-cb || na-nb || a.localeCompare(b);
+    });
 
     let totalOpen=filtered.filter(ex=>getExamStatus(ex,today)==='open').length;
     let totalFuture=filtered.filter(ex=>getExamStatus(ex,today)==='future').length;
