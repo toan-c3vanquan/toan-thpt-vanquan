@@ -264,6 +264,13 @@
             </select>
         </label>
         <button class="btn btn-purple btn-sm" id="bulkApplyGuestBtn">💾 Áp dụng (chỉ exams.json)</button>
+        <span style="color:#ccc;">|</span>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;">
+            <input type="checkbox" id="bulkInjectGuest" checked> 👤 Tiêm Khách
+        </label>
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.85rem;">
+            <input type="checkbox" id="bulkInjectSchool"> 🏫 Tiêm danh sách trường
+        </label>
         <label class="btn btn-info btn-sm" style="cursor:pointer;margin:0;">
             📂 Chọn file/folder .html để tiêm
             <input type="file" id="bulkGuestFileInput" webkitdirectory multiple style="display:none;">
@@ -275,11 +282,12 @@
 
     <!-- Thêm đề mới -->
     <div class="warning-box" id="bulkGuestHelp" style="display:none; margin-top:8px;">
-        💡 <b>Cách dùng tiêm "Cho phép Khách" cho đề CŨ (không cần qua form Thêm đề):</b><br>
+        💡 <b>Cách dùng tiêm "Cho phép Khách" / "Danh sách trường" cho đề CŨ (không cần qua form Thêm đề):</b><br>
         1) Tick chọn các đề cần đổi trong bảng trên.<br>
-        2) Chọn "Cho phép" hoặc "Không cho phép" ở ô trên.<br>
+        2) Chọn "Cho phép/Không cho phép Khách" ở ô trên — và tick chọn các checkbox "👤 Tiêm Khách" / "🏫 Tiêm danh sách trường" tùy ý (có thể tick cả 2, hoặc chỉ 1).<br>
         3) Bấm <b>📂 Chọn file/folder .html để tiêm</b> — chọn đúng thư mục (VD <code>toan12/</code>) chứa các file .html tương ứng (admin sẽ tự dò đúng file theo tên trong exams.json, file không liên quan sẽ bị bỏ qua).<br>
-        4) Một file ZIP sẽ được tạo, chứa các file .html đã tiêm cờ + exams.json cập nhật — giải nén và upload đè lên GitHub.
+        4) Một file ZIP sẽ được tạo, chứa các file .html đã tiêm + exams.json cập nhật — giải nén và upload đè lên GitHub.<br>
+        ℹ️ Danh sách trường được tiêm lấy từ tab "⚙️ Cài đặt" → "🏫 Danh sách trường" — chỉnh ở đó trước khi tiêm.
     </div>
 
     <div class="card">
@@ -1187,61 +1195,92 @@ document.getElementById("bulkGuestFileInput").onchange=async(e)=>{
     if(!files.length){alert("Không tìm thấy file .html nào trong lựa chọn.");return;}
     if(!selectedExamIdxs.size){alert("Chưa chọn đề nào trong bảng! Hãy tick chọn đề trước khi chọn file để tiêm.");return;}
 
-    let allowGuestVal=document.getElementById("bulkAllowGuest").value==="true";
+    let injectGuest=document.getElementById("bulkInjectGuest").checked;
+    let injectSchool=document.getElementById("bulkInjectSchool").checked;
+    if(!injectGuest&&!injectSchool){alert("Chưa tick chọn nội dung cần tiêm (👤 Tiêm Khách hoặc 🏫 Tiêm danh sách trường).");return;}
 
-    // Lập map: tên file (không kèm đường dẫn) -> giá trị allowGuest cần tiêm, CHỈ cho các đề đang được chọn
-    let targetMap={}; // { "DE12BAI1_001.html": true/false }
+    let allowGuestVal=document.getElementById("bulkAllowGuest").value==="true";
+    let truongListJson=JSON.stringify(schoolList.map(s=>s.name));
+    let truongDefault=((schoolList.find(s=>s.isDefault)||schoolList[0])||{}).name||"";
+
+    // Tập tên file (không kèm đường dẫn) của các đề ĐANG ĐƯỢC CHỌN trong bảng — chỉ tiêm cho các file này
+    let targetSet=new Set();
     let targetExamIdxs=[];
     selectedExamIdxs.forEach(idx=>{
         let ex=currentExams[idx];
         if(ex.type==='quiz'||!ex.html) return;
-        let fname=ex.html.split('/').pop();
-        targetMap[fname]=allowGuestVal;
+        targetSet.add(ex.html.split('/').pop());
         targetExamIdxs.push(idx);
     });
 
-    if(!Object.keys(targetMap).length){alert("Các đề đã chọn không có file .html hợp lệ để tiêm (có thể toàn là trắc nghiệm).");return;}
+    if(!targetSet.size){alert("Các đề đã chọn không có file .html hợp lệ để tiêm (có thể toàn là trắc nghiệm).");return;}
 
     let zip=new JSZip();
     let guestRegex=/var\s+ALLOW_GUEST\s*=\s*(true|false)\s*;/;
-    let matchedCount=0, missingVarCount=0, unmatchedFiles=[];
+    let truongListRegex=/var\s+TRUONG_LIST\s*=\s*(\[[\s\S]*?\])\s*;/;
+    let truongDefaultRegex=/var\s+TRUONG_DEFAULT\s*=\s*'[^']*'\s*;/;
+
+    let guestMatchedCount=0, guestMissingVarCount=0;
+    let schoolMatchedCount=0, schoolMissingVarCount=0;
+    let matchedFileCount=0, unmatchedFiles=[];
 
     for(let file of files){
-        if(!(file.name in targetMap)){
+        if(!targetSet.has(file.name)){
             unmatchedFiles.push(file.name); // file này không khớp đề nào đang được chọn, bỏ qua (không đưa vào ZIP)
             continue;
         }
         let content=await file.text();
-        if(guestRegex.test(content)){
-            content=content.replace(guestRegex,`var ALLOW_GUEST = ${targetMap[file.name]};`);
-            matchedCount++;
-        } else {
-            missingVarCount++; // file không có biến ALLOW_GUEST, bỏ qua tiêm nhưng vẫn giữ file gốc trong ZIP để bạn biết
+        let touched=false;
+
+        if(injectGuest){
+            if(guestRegex.test(content)){
+                content=content.replace(guestRegex,`var ALLOW_GUEST = ${allowGuestVal};`);
+                guestMatchedCount++; touched=true;
+            } else {
+                guestMissingVarCount++; // file không có biến ALLOW_GUEST, bỏ qua riêng phần này
+            }
         }
+        if(injectSchool){
+            let hasTruongList=truongListRegex.test(content);
+            if(hasTruongList){
+                content=content.replace(truongListRegex,`var TRUONG_LIST = ${truongListJson};`);
+                schoolMatchedCount++; touched=true;
+            } else {
+                schoolMissingVarCount++; // file không có biến TRUONG_LIST, bỏ qua riêng phần này
+            }
+            if(truongDefaultRegex.test(content)){
+                content=content.replace(truongDefaultRegex,`var TRUONG_DEFAULT = '${truongDefault.replace(/'/g,"\\'")}';`);
+                touched=true;
+            }
+        }
+
+        if(touched) matchedFileCount++;
         // Giữ nguyên đường dẫn thư mục con nếu trình duyệt cung cấp (webkitdirectory trả về webkitRelativePath)
         let relPath=file.webkitRelativePath||file.name;
         zip.file(relPath,content);
     }
 
-    if(matchedCount===0){
-        alert(`⚠️ Không tiêm được file nào. Kiểm tra lại đã chọn đúng thư mục chứa các file .html tương ứng với đề đã tick chưa.\n\nFile không khớp: ${unmatchedFiles.length}\nFile thiếu biến ALLOW_GUEST: ${missingVarCount}`);
+    if(matchedFileCount===0){
+        alert(`⚠️ Không tiêm được file nào. Kiểm tra lại đã chọn đúng thư mục chứa các file .html tương ứng với đề đã tick chưa, và file có sẵn các biến cần tiêm không.\n\nFile không khớp đề đã chọn: ${unmatchedFiles.length}`);
         return;
     }
 
-    // Cập nhật luôn metadata allowGuest trong exams.json cho các đề đã tiêm thành công
+    // Cập nhật luôn metadata trong exams.json cho các đề đã tiêm thành công
     targetExamIdxs.forEach(idx=>{
         let ex=currentExams[idx];
         let fname=ex.html.split('/').pop();
-        if(unmatchedFiles.indexOf(fname)===-1) ex.allowGuest=allowGuestVal;
+        if(unmatchedFiles.indexOf(fname)!==-1) return;
+        if(injectGuest) ex.allowGuest=allowGuestVal;
     });
     zip.file("exams.json",JSON.stringify(buildExamsExport(currentExams),null,2));
 
     let blob=await zip.generateAsync({type:"blob"});
-    let a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="tiem_allow_guest_export.zip";a.click();URL.revokeObjectURL(a.href);
+    let a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="tiem_thuoctinh_export.zip";a.click();URL.revokeObjectURL(a.href);
 
     renderExamList();
-    let msg=`✅ Đã tiêm ALLOW_GUEST=${allowGuestVal} vào ${matchedCount} file.\n`;
-    if(missingVarCount) msg+=`⚠️ ${missingVarCount} file không có biến ALLOW_GUEST, giữ nguyên không đổi.\n`;
+    let msg=`✅ Đã xử lý ${matchedFileCount} file.\n`;
+    if(injectGuest) msg+=`👤 Khách: tiêm thành công ${guestMatchedCount} file${guestMissingVarCount?`, ${guestMissingVarCount} file thiếu biến ALLOW_GUEST`:''}.\n`;
+    if(injectSchool) msg+=`🏫 Trường: tiêm thành công ${schoolMatchedCount} file${schoolMissingVarCount?`, ${schoolMissingVarCount} file thiếu biến TRUONG_LIST`:''}.\n`;
     if(unmatchedFiles.length) msg+=`ℹ️ ${unmatchedFiles.length} file trong thư mục không khớp đề nào đang chọn, đã bỏ qua.\n`;
     msg+=`\n📦 Giải nén ZIP và upload đè các file .html + exams.json lên GitHub (giữ đúng cấu trúc thư mục).`;
     alert(msg);
